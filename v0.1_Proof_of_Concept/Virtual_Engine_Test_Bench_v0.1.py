@@ -1,4 +1,5 @@
-from engine_model import calculate_torque
+import Test_Sweep
+'''
 while True:
     try:
         print('Enter throttle position:')
@@ -9,7 +10,7 @@ while True:
         break
     except:
         print('Invalid input. Throttle position must be between 0 and 1')
-'''
+
 while True:
     try:
         print('Enter engine RPM:')
@@ -20,7 +21,10 @@ while True:
         break
     except:
         print('Invalid input. Engine RPM must be between 0 and 15000')
-'''
 for rpm in range(1000,8000,500): #RPM Sweep
      x = calculate_torque(rpm, throttle)
      print(f'Your torque at {rpm} RPM is {x}')
+'''
+result = Test_Sweep.ThrottleRPMSweep(1000,8000)
+for row in result:
+    print(row)
