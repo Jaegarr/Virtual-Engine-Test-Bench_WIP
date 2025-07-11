@@ -1,80 +1,75 @@
 # 🧪 Virtual Engine Test Bench
+*Version: v0.1.0 — Baseline Pipeline Check*
 
-A Python-based simulation tool for internal combustion engine (ICE) development.  
-This project mimics the real-world process of engine test bench calibration, treating the virtual engine as if it were on a dyno.
+A **Python-based simulation tool** for internal combustion engine (ICE) development.  
+This project mimics real-world engine test bench calibration — treating the virtual engine as if it were on a dyno.
 
-It allows performance analysis, fuel efficiency evaluation, and map-based parameter tuning—starting simple and growing in fidelity version by version.
+It’s designed to start simple (steady‑state torque/power) and grow in fidelity version by version, just like a real test engineer’s workflow.
 
 ---
 
 ## 🎯 Project Philosophy
-
-Instead of just building an engine simulator, this project is treated like a real **test engineering campaign**:
-
-- Start with a first-run baseline engine
-- Add sensor and control maps incrementally (VE, spark timing, BSFC, boost, etc.)
-- Use real test engineer workflows: RPM sweeps, parameter tuning, fault injection
-- Evaluate performance, log results, and optimize the engine via simulation
+The project is structured like a real calibration & test engineering campaign:
+- Start with a baseline engine model
+- Add control maps and physics incrementally (VE, spark timing, BSFC, turbo, etc.)
+- Use real test workflows: RPM sweeps, parameter tuning, transient runs, fault injection
+- Log and analyze data to iteratively optimize performance & efficiency
 
 ---
 
-## 🧱 Core Components (to be developed)
-
-- **Air Mass Flow Model** based on VE and intake conditions  
-- **Torque & Power Calculation** from fuel and spark inputs  
-- **Fuel Flow and Efficiency Models** using BSFC maps  
-- **Spark Timing and Knock Sensitivity** tuning  
-- **Boost & Turbo Modeling** (for later versions)  
-- **Interactive Interface** for map tuning and test control  
-- **Fault Injection and PID Control** modules
+## 🧱 Core Components (planned)
+✅ Air mass flow model based on VE & intake  
+✅ Torque & power calculation  
+⬜ Spark timing & knock sensitivity tuning  
+⬜ Fuel flow & efficiency (BSFC) modeling  
+⬜ Boost & turbo dynamics  
+⬜ PID control loops (idle, boost)  
+⬜ Fault injection & emissions estimation  
+⬜ CLI & later GUI / dashboard
 
 ---
 
 ## 🚦 Roadmap & Version Milestones
 
-| Version | Name                             | Key Deliverables                                                                                                     |
-|---------|----------------------------------|----------------------------------------------------------------------------------------------------------------------|
-| **v0.1**  | Baseline Pipeline Check         | Constants for VE, spark, BSFC; CLI RPM sweep; torque & power plot                                                   |
-| **v0.5**  | VE Map Integration              | VE vs RPM map; air mass flow vs RPM; validated shape & behavior                                                     |
-| **v1.0**  | Spark Timing Calibration        | Spark-advance map; torque correction factor; sweep for peak torque vs timing                                        |
-| **v1.5**  | BSFC & Efficiency Mapping       | BSFC map; fuel-flow calculation; BSFC contour plots; CSV logging                                                    |
-| **v2.0**  | Optimization Loop & DOE         | Objective-based tuning (e.g. max torque); grid/heuristic search; auto run logging                                   |
-| **v2.5**  | Turbo & Knock-Limit Layer       | Boost pressure map; adjusted VE; knock-limit enforcement; knock-limited torque plots                                |
-| **v3.0**  | Control & Fault-Injection Suite | PID throttle/boost control; misfire/sensor fault injection; emissions estimation                                    |
-| **v3.x**  | Polish, Docs & Demo Package     | Full documentation; project tutorial; install scripts; video demo or GIFs                                           |
+| Version | Name                             | Key Deliverables |
+|--------|----------------------------------|------------------|
+| v0.1.0 | Baseline Pipeline Check          | Constants (VE, spark, BSFC); CLI RPM sweep; torque & power print |
+| v0.5.0 | VE Map Integration               | VE vs RPM map; air mass flow vs RPM; validated shape & behavior |
+| v1.0.0 | Spark Timing Calibration         | Spark-advance map; torque correction; sweep for peak torque vs timing |
+| v1.1.0 | Calibration Enhancements         | Idle PID, EGR & VVT maps, config save/load |
+| v1.5.0 | Combustion & Optimization        | Wiebe function, in-cylinder pressure, IMEP calc, parameter sweep |
+| v2.0.0 | Comprehensive Model              | Multi‑fuel support, HIL/ECU stub, emissions cycle (WLTP) |
+| v2.5.0 | Turbo & Knock-Limit Layer        | Boost pressure map, knock-limited torque |
+| v3.0.0 | Advanced Calibration Suite       | Auto‑tuning (DOE), real-time dashboard, report generation |
+| v3.x   | Docs & Demo Package              | Tutorial, diagrams, install scripts, video/GIF demo |
 
 ---
 
 ## 💡 Future Extensions
-
-- Variable valve timing modeling
-- Hybrid engine modes (ICE + electric motor)
+- Variable valve timing & lift modeling
+- Hybrid powertrains
 - Exhaust aftertreatment simulation
-- Engine thermal modeling (coolant temp, oil temp)
+- Thermal modeling (coolant, oil temps)
 
 ---
 
 ## 🧠 Learning Goals
-
-This project is part of an ongoing journey to:
-- Learn Python through applied engineering problems
-- Simulate engine behavior from first principles
-- Understand calibration logic and test methodologies
-- Bridge the gap between data, physics, and performance
+- Learn Python through applied engine simulation
+- Understand real calibration & test engineering workflows
+- Combine physics-based models & data-driven tuning
+- Build something modular, reusable & industry‑relevant
 
 ---
 
 ## 📌 Status
-
-Currently working on: **v0.1 – Baseline pipeline**  
-Estimated next milestone: **VE map integration (v0.5)**
+> **Currently building:** v0.1.0 — baseline CLI torque & power calculator  
+> **Next planned milestone:** VE map integration (v0.5.0)
 
 ---
 
-## 📎 Credits & Tools
-
-- Python 3.11+
-- Libraries: `numpy`, `matplotlib`, `pandas` (later: `scipy`, `plotly`, `streamlit`)
-- Inspired by real dyno testing workflows
+## 📎 Tools & Credits
+- Python 3.11+
+- Will use: `numpy`, `matplotlib`, `pandas` (later: `scipy`, `plotly`, `streamlit`)
+- Inspired by real dyno workflows & calibration strategies
 
 ---
