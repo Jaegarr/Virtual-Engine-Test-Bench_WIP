@@ -1,28 +1,29 @@
 from engine_model import calculate_power, calculate_torque
 while True:
     try:
-        print('Enter throttle position:')
-        throttle = float(input())
-        if throttle < 0.0 or throttle > 1.0:
-            print('Throttle position must be between 0 and 1. Please enter a throttle position:')
+        print('Enter engine displacement in Liters:')
+        displacement = float(input())
+        if displacement < 0.0 or displacement > 20.0: # Assuming vehicle is passenger & light/medium off-highway vehicle
+            print('Engine displacement must be between 0 and 20. Please enter engine displacement:')
             continue
         break
     except:
-        print('Invalid input. Throttle position must be between 0 and 1')
-'''
+        print('Invalid input. Engine displacement must be between 0 and 20.')
+
 while True:
     try:
-        print('Enter engine RPM:')
-        rpm = float(input())
-        if rpm < 0.0 or rpm > 15000.0:
+        print('Enter Volumetric Efficiency(VE):')
+        ve = float(input())
+        if ve < 0.6 or ve > 1.2: # Assuming NA or mild turbo
             print('Engine RPM must be between 0 and 15000. Please enteR engine RPM:')
             continue
         break
     except:
         print('Invalid input. Engine RPM must be between 0 and 15000')
 '''
-for rpm in range(1000,8000,500): #RPM Sweep
-     t = calculate_torque(rpm, throttle)
-     p = calculate_power(rpm, t)
-     print(f'Your torque at {rpm} RPM is {t} Nm.') 
-     print(f'Your power at {rpm} RPM is {p} kW.')      
+for ve in range(1000,8000,500): #RPM Sweep
+     t = calculate_torque(ve, displacement)
+     p = calculate_power(ve, t)
+     print(f'Your torque at {ve} RPM is {t} Nm.') 
+     print(f'Your power at {ve} RPM is {p} kW.') 
+'''     
