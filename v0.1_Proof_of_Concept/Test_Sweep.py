@@ -1,12 +1,12 @@
-import engine_model
-def ThrottleRPMSweep(RPM_min,RPM_max):
+from engine_model import calculate_air_mass_flow, calculate_power, calculate_torque
+def ThrottleRPMSweep(RPM_min, RPM_max, displacement_l, ve):
     results=[]
+    throttles = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     for rpm in range(RPM_min,RPM_max+1,500):
-        t25 = engine_model.calculate_torque(rpm,0.25)
-        t50 = engine_model.calculate_torque(rpm,0.5)
-        t75 = engine_model.calculate_torque(rpm,0.75)
-        t100 = engine_model.calculate_torque(rpm,1)
-        row = [rpm, t25, t50, t75, t100]
-        results.append(row)
+        mdotAir = calculate_air_mass_flow(rpm, displacement_l, ve)
+        for throttle in throttles:
+            t = calculate_torque(rpm, throttle, mdotAir)
+            p = calculate_power(rpm, t)
+            row = [rpm, throttle, t, p]
+            results.append(row)
     return results
-ThrottleRPMSweep(1000,8000)
