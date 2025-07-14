@@ -23,14 +23,23 @@ while True:
 while True:
     try:
         print('Enter minimum RPM:')
-        rpmMin = float(input())
-        if ve < 800: # Assuming NA or mild turbo
-            print('Minimum RPM must be at least 800 RPM:')
+        rpmMin = int(input())
+        if rpmMin < 800: # Assuming NA or mild turbo
+            print('Minimum RPM must be at least 800 RPM. Please enter minimum RPM:')
             continue
         break
     except:
-        print('Invalid input. Minimum RPM must be at least 800 RPM')
- 
-results = ThrottleRPMSweep(rpmMin, 8000, displacement, ve)
+        print('Invalid input. Minimum RPM must be at least 800 RPM.')
+while True:
+    try:
+        print('Enter maximum RPM:')
+        rpmMax = int(input())
+        if ve > 15000: # Assuming NA or mild turbo
+            print('Maximum RPM cannot be higher than 15000 RPM. Please enter maximum RPM:')
+            continue
+        break
+    except:
+        print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
+results = ThrottleRPMSweep(rpmMin, rpmMax, displacement, ve)
 df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)'])
 print(df)
