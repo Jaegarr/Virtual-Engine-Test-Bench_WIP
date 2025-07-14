@@ -10,7 +10,6 @@ while True:
         break
     except:
         print('Invalid input. Engine displacement must be between 0 and 20.')
-
 while True:
     try:
         print('Enter Volumetric Efficiency(VE):')
@@ -20,7 +19,18 @@ while True:
             continue
         break
     except:
-        print('Invalid input. VE must be between 0.6 and 1.2') 
-results = ThrottleRPMSweep(1000, 8000, displacement, ve)
+        print('Invalid input. VE must be between 0.6 and 1.2')
+while True:
+    try:
+        print('Enter minimum RPM:')
+        rpmMin = float(input())
+        if ve < 800: # Assuming NA or mild turbo
+            print('Minimum RPM must be at least 800 RPM:')
+            continue
+        break
+    except:
+        print('Invalid input. Minimum RPM must be at least 800 RPM')
+ 
+results = ThrottleRPMSweep(rpmMin, 8000, displacement, ve)
 df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)'])
 print(df)
