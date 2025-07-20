@@ -1,4 +1,4 @@
-from Test_Sweep import ThrottleRPMSweep
+from Test_Modes import ThrottleRPMSweep, SinglePoint
 import pandas as pd
 while True:
     try:
@@ -22,24 +22,55 @@ while True:
         print('Invalid input. VE must be between 0.6 and 1.2')
 while True:
     try:
-        print('Enter minimum RPM:')
-        rpmMin = int(input())
-        if rpmMin < 800: # Assuming NA or mild turbo
-            print('Minimum RPM must be at least 800 RPM. Please enter minimum RPM:')
-            continue
+        print('Please select the test you want to execute:')
+        print("1 - Single run")
+        print("2 - RPM sweep")
+        print("3 - Exit")
+        testMode = input("Enter your te (1, 2, or 3): ")
+        if testMode == '1':
+            print("You selected Single run")
+            while True:
+                try:
+                    print('Enter the RPM:')
+                    rpm = int(input())
+                    if rpm < 800 or rpm > 15000: # Assuming NA or mild turbo
+                        print('RPM value must be between 800 RPM and 15000 RPM. Please enter the RPM:')
+                        continue
+                    break
+                except:
+                    print('RPM value must be between 800 RPM and 15000 RPM.')
+            result = SinglePoint(rpm, displacement, ve)
+            df = pd.DataFrame(result, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)'])
+            print(df)
+            break
+        elif testMode == '2':
+            print("You selected RPM sweep")
+            while True:
+                try:
+                    print('Enter minimum RPM:')
+                    rpmMin = int(input())
+                    if rpmMin < 800: # Assuming NA or mild turbo
+                        print('Minimum RPM must be at least 800 RPM. Please enter minimum RPM:')
+                        continue
+                    break
+                except:
+                    print('Invalid input. Minimum RPM must be at least 800 RPM.')
+            while True:
+                try:
+                    print('Enter maximum RPM:')
+                    rpmMax = int(input())
+                    if rpmMax > 15000: # Assuming NA or mild turbo
+                        print('Maximum RPM cannot be higher than 15000 RPM. Please enter maximum RPM:')
+                        continue
+                    break
+                except:
+                    print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
+            results = ThrottleRPMSweep(rpmMin, rpmMax, displacement, ve)
+            df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)'])
+            print(df)
+            break
+        elif testMode == '3':
+            print("Exiting program.")
         break
     except:
-        print('Invalid input. Minimum RPM must be at least 800 RPM.')
-while True:
-    try:
-        print('Enter maximum RPM:')
-        rpmMax = int(input())
-        if ve > 15000: # Assuming NA or mild turbo
-            print('Maximum RPM cannot be higher than 15000 RPM. Please enter maximum RPM:')
-            continue
-        break
-    except:
-        print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
-results = ThrottleRPMSweep(rpmMin, rpmMax, displacement, ve)
-df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)'])
-print(df)
+        print("Invalid input. Please enter 1, 2, or 3.")
