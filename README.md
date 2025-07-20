@@ -41,7 +41,6 @@ The project is structured like a real calibration & test engineering campaign:
 | v2.0.0 | Comprehensive Model              | Multi‑fuel support, HIL/ECU stub, emissions cycle (WLTP) |
 | v2.5.0 | Turbo & Knock-Limit Layer        | Boost pressure map, knock-limited torque |
 | v3.0.0 | Advanced Calibration Suite       | Auto‑tuning (DOE), real-time dashboard, report generation |
-| v3.x   | Docs & Demo Package              | Tutorial, diagrams, install scripts, video/GIF demo |
 
 ---
 
