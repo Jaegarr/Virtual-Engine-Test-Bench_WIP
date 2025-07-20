@@ -18,8 +18,8 @@ The project is structured like a real calibration & test engineering campaign:
 ---
 
 ## 🧱 Core Components (planned)
-✅ Torque & power calculation 
-✅ Air mass flow model based on VE 
+✅ Torque & power calculation  
+✅ Air mass flow model based on VE  
 ⬜ Spark timing & knock sensitivity tuning  
 ⬜ Fuel flow & efficiency (BSFC) modeling  
 ⬜ Boost & turbo dynamics  
@@ -33,14 +33,14 @@ The project is structured like a real calibration & test engineering campaign:
 
 | Version | Name                             | Key Deliverables |
 |--------|----------------------------------|------------------|
-| v0.1.0 | Baseline Pipeline Check          | Constants (VE, spark, BSFC); CLI RPM sweep; torque & power print |
-| v0.5.0 | VE Map Integration               | VE vs RPM map; air mass flow vs RPM; validated shape & behavior |
-| v1.0.0 | Spark Timing Calibration         | Spark-advance map; torque correction; sweep for peak torque vs timing |
+| v0.1.0 | Baseline Pipeline Check          | Airflow calc, torque & power functions, RPM sweep |
+| v0.5.0 | VE Map Integration               | VE vs RPM map; validate airflow curve |
+| v1.0.0 | Spark Timing Calibration         | Spark map; torque correction; peak torque sweep |
 | v1.1.0 | Calibration Enhancements         | Idle PID, EGR & VVT maps, config save/load |
 | v1.5.0 | Combustion & Optimization        | Wiebe function, in-cylinder pressure, IMEP calc, parameter sweep |
-| v2.0.0 | Comprehensive Model              | Multi‑fuel support, HIL/ECU stub, emissions cycle (WLTP) |
-| v2.5.0 | Turbo & Knock-Limit Layer        | Boost pressure map, knock-limited torque |
-| v3.0.0 | Advanced Calibration Suite       | Auto‑tuning (DOE), real-time dashboard, report generation |
+| v2.0.0 | Comprehensive Model              | Multi‑fuel support, HIL/ECU stub, emissions cycle |
+| v2.5.0 | Turbo & Knock-Limit Layer        | Boost map, knock-limited torque |
+| v3.0.0 | Advanced Calibration Suite       | Auto‑tuning (DOE), real-time dashboard, reports |
 
 ---
 
@@ -53,7 +53,6 @@ The project is structured like a real calibration & test engineering campaign:
 ---
 
 ## 🧠 Learning Goals
-- Learn Python through applied engine simulation
 - Understand real calibration & test engineering workflows
 - Combine physics-based models & data-driven tuning
 - Build something modular, reusable & industry‑relevant
@@ -68,7 +67,5 @@ The project is structured like a real calibration & test engineering campaign:
 
 ## 📎 Tools & Credits
 - Python 3.11+
-- Will use: `numpy`, `matplotlib`, `pandas` (later: `scipy`, `plotly`, `streamlit`)
+- Using: `numpy`, `pandas` (later: `matplotlib`, `scipy`, `plotly`, `streamlit`)
 - Inspired by real dyno workflows & calibration strategies
-
----
