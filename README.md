@@ -19,7 +19,6 @@ The project is structured like a real calibration & test engineering campaign:
 
 ## 🧱 Core Components (planned)
 ✅ Air mass flow model based on VE
-
 ✅ Torque & power calculation  
 ⬜ Spark timing & knock sensitivity tuning  
 ⬜ Fuel flow & efficiency (BSFC) modeling  
