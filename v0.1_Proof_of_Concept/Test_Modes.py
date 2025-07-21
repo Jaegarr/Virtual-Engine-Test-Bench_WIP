@@ -10,7 +10,7 @@ def ThrottleRPMSweep(RPM_min, RPM_max, displacement_l, ve):
             row = [rpm, throttle, t, p]
             results.append(row)
     return results
-def SinglePoint(rpm, displacement_l, ve):
+def SingleRun(rpm, displacement_l, ve):
     mdotAir = calculate_air_mass_flow(rpm, displacement_l, ve)
     results=[]
     throttles = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
