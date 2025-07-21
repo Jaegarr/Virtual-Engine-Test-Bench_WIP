@@ -21,3 +21,6 @@ def calculate_torque(rpm, throttle, mdotAir, AFR = 14.7, LHV = 44e6, eff = 0.3):
 def calculate_power(rpm, torque):
     power = (torque*rpm*2*math.pi/60)/1000 # In kW
     return power
+def calculate_horsePower(rpm,torque):
+    horsePower = (torque*rpm*2*math.pi/60)/745.7
+    return horsePower

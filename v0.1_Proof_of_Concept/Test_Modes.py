@@ -1,4 +1,4 @@
-from engine_model import calculate_air_mass_flow, calculate_power, calculate_torque
+from engine_model import calculate_air_mass_flow, calculate_power, calculate_torque, calculate_horsePower
 def ThrottleRPMSweep(RPM_min, RPM_max, displacement_l, ve):
     results=[]
     throttles = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
@@ -7,7 +7,8 @@ def ThrottleRPMSweep(RPM_min, RPM_max, displacement_l, ve):
         for throttle in throttles:
             t = calculate_torque(rpm, throttle, mdotAir)
             p = calculate_power(rpm, t)
-            row = [rpm, throttle, t, p]
+            hp = calculate_horsePower(rpm,t)
+            row = [rpm, throttle, t, p, hp]
             results.append(row)
     return results
 def SingleRun(rpm, displacement_l, ve):
@@ -17,6 +18,7 @@ def SingleRun(rpm, displacement_l, ve):
     for throttle in throttles:
         t = calculate_torque(rpm, throttle, mdotAir)
         p = calculate_power(rpm, t)
-        row = [rpm, throttle, t, p]
+        hp = calculate_horsePower(rpm,t)
+        row = [rpm, throttle, t, p, hp]
         results.append(row)
     return results
