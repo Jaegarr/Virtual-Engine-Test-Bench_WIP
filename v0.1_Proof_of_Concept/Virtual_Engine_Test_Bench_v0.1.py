@@ -1,4 +1,4 @@
-from Test_Modes import ThrottleRPMSweep, SingleRun
+from Test_Modes import ThrottleRPMSweep, SingleRun, FullThrottleResponse
 import pandas as pd
 pd.set_option('display.float_format', '{:.3f}'.format)
 import sys
@@ -25,9 +25,10 @@ while True:
 while True:
     print('Please select the test you want to execute:')
     print("1 - Single run")
-    print("2 - RPM sweep")
-    print("3 - Exit")
-    testMode = input("Enter your test choice(1, 2, or 3): ")
+    print("2 - Full Throttle Response")
+    print("3 - RPM sweep")
+    print("4 - Exit")
+    testMode = input("Enter your test choice(1, 2, 3, 4): ")
     if testMode == '1':
         print("You have selected Single run")
         while True:
@@ -45,6 +46,32 @@ while True:
         print(df)
         sys.exit()
     elif testMode == '2':
+        print("You selected Full Throttle Response")
+        while True:
+            try:
+                print('Enter minimum RPM:')
+                rpmMin = int(input())
+                if rpmMin < 800: 
+                    print('Minimum RPM must be at least 800 RPM. Please enter minimum RPM:')
+                    continue
+                break
+            except:
+                print('Invalid input. Minimum RPM must be at least 800 RPM.')
+        while True:
+            try:
+                print('Enter maximum RPM:')
+                rpmMax = int(input())
+                if rpmMax > 15000: 
+                    print('Maximum RPM cannot be higher than 15000 RPM. Please enter maximum RPM:')
+                    continue
+                break
+            except:
+                print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
+        results = FullThrottleResponse(rpmMin, rpmMax, displacement, ve)
+        df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
+        print(df)
+        sys.exit()
+    elif testMode == '3':
         print("You selected RPM sweep")
         while True:
             try:
@@ -70,7 +97,7 @@ while True:
         df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
         print(df)
         sys.exit()
-    elif testMode == '3':
+    elif testMode == '4':
         print("Exiting program.")
         sys.exit()
     else:
