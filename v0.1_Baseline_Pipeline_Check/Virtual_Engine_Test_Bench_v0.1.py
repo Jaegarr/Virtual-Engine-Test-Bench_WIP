@@ -1,7 +1,8 @@
 from Test_Modes import ThrottleRPMSweep, SingleRun, FullThrottleResponse
+from Reporting import export_results_to_csv
+import sys
 import pandas as pd
 pd.set_option('display.float_format', '{:.3f}'.format)
-import sys
 while True:
     try:
         print('Enter engine displacement in Liters:')
@@ -43,7 +44,7 @@ while True:
                 print('RPM value must be between 800 RPM and 15000 RPM.')
         result = SingleRun(rpm, displacement, ve)
         df = pd.DataFrame(result, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
-        print(df)
+        export_results_to_csv(df)
         sys.exit()
     elif testMode == '2':
         print("You selected Full Throttle Response")
@@ -69,7 +70,7 @@ while True:
                 print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
         results = FullThrottleResponse(rpmMin, rpmMax, displacement, ve)
         df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
-        print(df)
+        export_results_to_csv(df)
         sys.exit()
     elif testMode == '3':
         print("You selected RPM sweep")
@@ -95,7 +96,7 @@ while True:
                 print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
         results = ThrottleRPMSweep(rpmMin, rpmMax, displacement, ve)
         df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
-        print(df)
+        export_results_to_csv(df)
         sys.exit()
     elif testMode == '4':
         print("Exiting program.")
