@@ -1,4 +1,4 @@
-from Test_Modes import ThrottleRPMSweep, SingleRun, FullThrottleResponse
+from Test_Modes import FullRangeSweep, SingleRun, FullThrottleResponse
 from Reporting import export_results_to_csv
 import sys
 import pandas as pd
@@ -94,7 +94,7 @@ while True:
                 break
             except:
                 print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
-        results = ThrottleRPMSweep(rpmMin, rpmMax, displacement, ve)
+        results = FullRangeSweep(rpmMin, rpmMax, displacement, ve)
         df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
         export_results_to_csv(df)
         sys.exit()
