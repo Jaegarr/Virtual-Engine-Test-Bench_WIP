@@ -21,7 +21,7 @@ def FullThrottleResponse(RPM_min, RPM_max, displacement_l, ve):
         row = [rpm, throttle, t, p, hp]
         results.append(row)
     return results
-def ThrottleRPMSweep(RPM_min, RPM_max, displacement_l, ve):
+def FullRangeSweep(RPM_min, RPM_max, displacement_l, ve):
     results=[]
     throttles = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     for rpm in range(RPM_min,RPM_max+1,100):
