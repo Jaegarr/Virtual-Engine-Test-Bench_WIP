@@ -2,6 +2,7 @@ from Test_Modes import FullRangeSweep, SingleRun, FullThrottleResponse
 from Reporting import export_results_to_csv
 import sys
 import pandas as pd
+import Calibration as cal
 pd.set_option('display.float_format', '{:.3f}'.format)
 while True:
     try:
@@ -14,15 +15,35 @@ while True:
     except:
         print('Invalid input. Engine displacement must be between 0 and 20.')
 while True:
-    try:
-        print('Enter Volumetric Efficiency(VE):')
-        ve = float(input())
-        if ve < 0.6 or ve > 1.2: # Assuming NA or mild turbo
-            print('VE must be between 0.6 and 1.2. Please enter VE:')
-            continue
-        break
-    except:
-        print('Invalid input. VE must be between 0.6 and 1.2')
+    print("Choose VE input method:")
+    print("1. Enter constant VE")
+    print("2. Load VE table (CSV)")
+    choice = input("Enter 1 or 2: ").strip()
+    if choice == '1': 
+        while True:
+            try:
+                print('Enter Volumetric Efficiency(VE):')
+                ve = float(input())
+                if ve < 0.6 or ve > 1.2: # Assuming NA or mild turbo
+                    print('VE must be between 0.6 and 1.2. Please enter VE:')
+                    continue
+                break
+            except:
+                print('Invalid input. VE must be between 0.6 and 1.2')
+    elif choice == '2':
+        file_path = input('Enter VE table CSV path (leave empty to use default): ').strip()
+        if not file_path:
+            ve_table = 'Nissan_350Z_VE.csv'  # your default file
+            ve_mode = 'table'
+        try:
+            ve_table = pd.read_csv(file_path, index_col=0)  # load table
+            ve_mode = 'table'
+            print(f'✅ Loaded VE table from {file_path}')
+            break
+        except Exception as e:
+            print(f'❌ Could not load file: {e}')
+    else:
+        print('Invalid choice, enter 1 or 2.')
 while True:
     print('Please select the test you want to execute:')
     print("1 - Single run")
@@ -42,10 +63,18 @@ while True:
                 break
             except:
                 print('RPM value must be between 800 RPM and 15000 RPM.')
-        result = SingleRun(rpm, displacement, ve)
-        df = pd.DataFrame(result, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
-        export_results_to_csv(df)
-        sys.exit()
+        if ve_mode == 'table':
+            ve_vs_rpm = ve_table.loc[100]/100
+            ve = cal.get_ve_from_table(rpm,ve_vs_rpm)
+            results = SingleRun(rpm, displacement, ve)
+            df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
+            export_results_to_csv(df)
+            sys.exit()
+        else:
+            results = SingleRun(rpm, displacement, ve)
+            df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
+            export_results_to_csv(df)
+            sys.exit()
     elif testMode == '2':
         print("You selected Full Throttle Response")
         while True:
@@ -68,10 +97,18 @@ while True:
                 break
             except:
                 print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
-        results = FullThrottleResponse(rpmMin, rpmMax, displacement, ve)
-        df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
-        export_results_to_csv(df)
-        sys.exit()
+        if ve_mode == 'table':
+            ve_vs_rpm = ve_table.loc[100]/100
+            ve = cal.get_ve_from_table(rpm,ve_vs_rpm)
+            results = FullThrottleResponse(rpmMin, rpmMax, displacement, ve)
+            df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
+            export_results_to_csv(df)
+            sys.exit()
+        else:
+            results = FullThrottleResponse(rpmMin, rpmMax, displacement, ve)
+            df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
+            export_results_to_csv(df)
+            sys.exit()
     elif testMode == '3':
         print("You selected RPM sweep")
         while True:
@@ -94,10 +131,18 @@ while True:
                 break
             except:
                 print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
-        results = FullRangeSweep(rpmMin, rpmMax, displacement, ve)
-        df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
-        export_results_to_csv(df)
-        sys.exit()
+        if ve_mode == 'table':
+            ve_vs_rpm = ve_table.loc[100]/100
+            ve = cal.get_ve_from_table(rpm,ve_vs_rpm)
+            results = FullRangeSweep(rpmMin, rpmMax, displacement, ve)
+            df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
+            export_results_to_csv(df)
+            sys.exit()
+        else:
+            results = FullRangeSweep(rpmMin, rpmMax, displacement, ve)
+            df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
+            export_results_to_csv(df)
+            sys.exit()
     elif testMode == '4':
         print("Exiting program.")
         sys.exit()

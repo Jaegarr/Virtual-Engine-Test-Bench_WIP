@@ -6,6 +6,11 @@ def get_target_lambda(rpm,AFR = 14.7):
    target_lambda = float(np.interp(rpm,lambda_target_map['RPM'],lambda_target_map['Lambda']))
    target_AFR = AFR*target_lambda
    return target_AFR
+def get_ve_from_table(rpm,ve_vs_rpm):
+   rpms = ve_vs_rpm.index.to_numpy(dtype=float)
+   ves = ve_vs_rpm.values
+   ve_interp = np.interp(rpm, rpms, ves)
+   return ve_interp
 def calculate_fmep(rpm,displacement_l):
    fmep = 0.25 + 0.02*rpm/1000 + 0.03*(rpm/1000)**2
    displacement_m3 = displacement_l/1e3
