@@ -31,7 +31,9 @@ while True:
             except:
                 print('Invalid input. VE must be between 0.6 and 1.2')
     elif choice == '2':
+        ve_mode = 'table'
         file_path = input('Enter VE table CSV path (leave empty to use default): ').strip()
+        cal.load_ve_table(file_path)
         if not file_path:
             ve_table = 'Nissan_350Z_VE.csv'  # your default file
             ve_mode = 'table'

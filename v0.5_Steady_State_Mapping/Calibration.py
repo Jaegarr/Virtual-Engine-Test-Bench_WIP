@@ -6,21 +6,25 @@ def get_target_lambda(rpm,AFR = 14.7):
    target_lambda = float(np.interp(rpm,lambda_target_map['RPM'],lambda_target_map['Lambda']))
    target_AFR = AFR*target_lambda
    return target_AFR
+def load_ve_table(file_path=None):
+    """Load VE table from CSV, return VE vs RPM series"""
+    if not file_path:
+        file_path = 'Data/Nissan_350Z_VE.csv'  # default relative path
+        try:
+            ve_table = pd.read_csv(file_path, index_col=0)  # load table
+            ve_mode = 'table'
+            print(f'✅ Loaded VE table from {file_path}')
+            break
+        except Exception as e:
+            print(f'❌ Could not load file: {e}')
+    ve_table = pd.read_csv(file_path, index_col=0)
+    # Select MAP=100 kPa row (you might adjust to nearest if missing)
+    ve_vs_rpm = ve_table.loc[100] / 100  # convert % to fraction
+    return ve_vs_rpm
 def get_ve_from_table(rpm,ve_vs_rpm):
    rpms = ve_vs_rpm.index.to_numpy(dtype=float)
    ves = ve_vs_rpm.values
    ve_interp = np.interp(rpm, rpms, ves)
    return ve_interp
-def calculate_fmep(rpm,displacement_l):
-   fmep = 0.25 + 0.02*rpm/1000 + 0.03*(rpm/1000)**2
-   displacement_m3 = displacement_l/1e3
-   fmep_pa = fmep*1e5
-   fmep_nm = fmep_pa * displacement_m3/(4*math.pi)
-   return fmep_nm
-def calculate_pmep(rpm, displacement_l):
-   pmep = 0.02 + 0.00001*rpm
-   pmep_pa = pmep*1e5
-   displacement_m3 = displacement_l/1e3
-   pmep_nm = pmep_pa*displacement_m3/(4*math.pi)
-   return pmep_nm
+
     
