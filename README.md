@@ -36,7 +36,7 @@ The project starts with a basic torque & power model, and grows in fidelity vers
 ✅ Horsepower calculation  
 ✅ CLI interface & mode select  
 ✅ CSV export & file/folder naming logic  
-⬜ VE map (RPM vs VE) from real data  
+✅ VE map (RPM vs VE) from real data  
 ⬜ Spark timing & knock-limited torque  
 ⬜ Fuel flow, BSFC & CO₂ estimation  
 ⬜ Boost & turbocharger modeling  
