@@ -18,34 +18,35 @@ while True:
     print("Choose VE input method:")
     print("1. Enter constant VE")
     print("2. Load VE table (CSV)")
-    choice = input("Enter 1 or 2: ").strip()
-    if choice == '1': 
+    print("3. Exit the program")
+    choice = input("Enter 1, 2 or 3: ").strip()
+    if choice == '1':
         while True:
             try:
                 print('Enter Volumetric Efficiency(VE):')
                 ve = float(input())
-                if ve < 0.6 or ve > 1.2: # Assuming NA or mild turbo
-                    print('VE must be between 0.6 and 1.2. Please enter VE:')
+                if ve < 0.6 or ve > 1.2:
+                    print('VE must be between 0.6 and 1.2.')
                     continue
+                ve_mode = 'constant'
                 break
             except:
                 print('Invalid input. VE must be between 0.6 and 1.2')
+        break  # break outer loop after success
     elif choice == '2':
-        ve_mode = 'table'
         file_path = input('Enter VE table CSV path (leave empty to use default): ').strip()
-        cal.load_ve_table(file_path)
-        if not file_path:
-            ve_table = 'Nissan_350Z_VE.csv'  # your default file
+        ve_vs_rpm = cal.load_ve_table(file_path if file_path else None)
+        if ve_vs_rpm is None:
+            print('❌ Failed to load VE data. Try again.')
+            continue  # goes back to asking VE input method
+        else:
             ve_mode = 'table'
-        try:
-            ve_table = pd.read_csv(file_path, index_col=0)  # load table
-            ve_mode = 'table'
-            print(f'✅ Loaded VE table from {file_path}')
-            break
-        except Exception as e:
-            print(f'❌ Could not load file: {e}')
+            break  # break outer loop after loading
+    elif choice == '3':
+        print('Exiting the program.')
+        sys.exit()
     else:
-        print('Invalid choice, enter 1 or 2.')
+        print('Invalid choice, enter 1, 2 or 3.')
 while True:
     print('Please select the test you want to execute:')
     print("1 - Single run")
@@ -66,13 +67,6 @@ while True:
             except:
                 print('RPM value must be between 800 RPM and 15000 RPM.')
         if ve_mode == 'table':
-            ve_vs_rpm = ve_table.loc[100]/100
-            ve = cal.get_ve_from_table(rpm,ve_vs_rpm)
-            results = SingleRun(rpm, displacement, ve)
-            df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
-            export_results_to_csv(df)
-            sys.exit()
-        else:
             results = SingleRun(rpm, displacement, ve)
             df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
             export_results_to_csv(df)
@@ -99,15 +93,10 @@ while True:
                 break
             except:
                 print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
-        if ve_mode == 'table':
-            ve_vs_rpm = ve_table.loc[100]/100
-            ve = cal.get_ve_from_table(rpm,ve_vs_rpm)
-            results = FullThrottleResponse(rpmMin, rpmMax, displacement, ve)
-            df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
-            export_results_to_csv(df)
-            sys.exit()
-        else:
-            results = FullThrottleResponse(rpmMin, rpmMax, displacement, ve)
+            if ve_mode == 'table':
+                results = FullThrottleResponse(rpmMin, rpmMax, displacement, ve_mode, ve_vs_rpm=ve_vs_rpm)
+            else:
+                results = FullThrottleResponse(rpmMin, rpmMax, displacement, ve_mode, constant_ve=ve)
             df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
             export_results_to_csv(df)
             sys.exit()
@@ -134,13 +123,6 @@ while True:
             except:
                 print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
         if ve_mode == 'table':
-            ve_vs_rpm = ve_table.loc[100]/100
-            ve = cal.get_ve_from_table(rpm,ve_vs_rpm)
-            results = FullRangeSweep(rpmMin, rpmMax, displacement, ve)
-            df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
-            export_results_to_csv(df)
-            sys.exit()
-        else:
             results = FullRangeSweep(rpmMin, rpmMax, displacement, ve)
             df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
             export_results_to_csv(df)

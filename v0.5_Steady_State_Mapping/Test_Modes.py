@@ -1,4 +1,5 @@
 from engine_model import calculate_air_mass_flow, calculate_power, calculate_torque, calculate_horsePower
+import Calibration as cal
 def SingleRun(rpm, displacement_l, ve):
     mdotAir = calculate_air_mass_flow(rpm, displacement_l, ve)
     results=[]
@@ -10,10 +11,14 @@ def SingleRun(rpm, displacement_l, ve):
         row = [rpm, throttle, t, p, hp]
         results.append(row)
     return results
-def FullThrottleResponse(RPM_min, RPM_max, displacement_l, ve):
+def FullThrottleResponse(RPM_min, RPM_max, displacement_l, ve_mode, ve_vs_rpm=None, constant_ve=None):
     results = []
     throttle = 1.0
     for rpm in range(RPM_min,RPM_max+1,100):
+        if ve == 'table':
+            ve = cal.get_ve_from_table(rpm,ve_vs_rpm)
+        else:
+            ve = constant_ve
         mdotAir = calculate_air_mass_flow(rpm, displacement_l, ve)
         t = calculate_torque(rpm, throttle, mdotAir, displacement_l)
         p = calculate_power(rpm, t)
