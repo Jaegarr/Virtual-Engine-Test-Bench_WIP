@@ -1,4 +1,4 @@
-from Test_Modes import FullRangeSweep, SingleRun, FullThrottleResponse
+from Test_Modes import FullRangeSweep, SingleRun, SingleRun
 from Reporting import export_results_to_csv
 import sys
 import pandas as pd
@@ -67,7 +67,9 @@ while True:
             except:
                 print('RPM value must be between 800 RPM and 15000 RPM.')
         if ve_mode == 'table':
-            results = SingleRun(rpm, displacement, ve)
+            results = SingleRun(rpm, displacement, ve_mode, ve_vs_rpm=ve_vs_rpm)
+        else:
+            results = SingleRun(rpm, displacement, ve_mode, constant_ve=ve)
             df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
             export_results_to_csv(df)
             sys.exit()
@@ -93,13 +95,13 @@ while True:
                 break
             except:
                 print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
-            if ve_mode == 'table':
-                results = FullThrottleResponse(rpmMin, rpmMax, displacement, ve_mode, ve_vs_rpm=ve_vs_rpm)
-            else:
-                results = FullThrottleResponse(rpmMin, rpmMax, displacement, ve_mode, constant_ve=ve)
-            df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
-            export_results_to_csv(df)
-            sys.exit()
+        if ve_mode == 'table':
+            results = SingleRun(rpmMin, rpmMax, displacement, ve_mode, ve_vs_rpm=ve_vs_rpm)
+        else:
+            results = SingleRun(rpmMin, rpmMax, displacement, ve_mode, constant_ve=ve)
+        df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
+        export_results_to_csv(df)
+        sys.exit()
     elif testMode == '3':
         print("You selected RPM sweep")
         while True:
@@ -123,7 +125,9 @@ while True:
             except:
                 print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
         if ve_mode == 'table':
-            results = FullRangeSweep(rpmMin, rpmMax, displacement, ve)
+            results = FullRangeSweep(rpmMin, rpmMax, displacement, ve_mode, ve_vs_rpm=ve_vs_rpm)
+        else:
+            results = FullRangeSweep(rpmMin, rpmMax, displacement, ve_mode, constant_ve=ve)
             df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower'])
             export_results_to_csv(df)
             sys.exit()

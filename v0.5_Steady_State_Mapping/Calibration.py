@@ -17,23 +17,6 @@ def load_ve_table(file_path=None):
     # Select MAP=100 kPa row (adjust if needed)
     ve_vs_rpm = ve_table.loc[100] / 100  # convert from % to fraction
     return ve_vs_rpm
-def load_ve_table(file_path=None):
-    """Load VE table from CSV, return VE vs RPM series"""
-    if not file_path:
-        file_path = 'Nissan_350Z_VE.csv'
-        print(f'✅ Loaded VE table from {file_path}')
-    try:
-        ve_table = pd.read_csv(file_path, index_col=0)
-        print(f'✅ Loaded VE table from {file_path}')
-    except Exception as e:
-        print(f'❌ Could not load file: {e}')
-        return None
-    try:
-        ve_vs_rpm = ve_table.loc[100] / 100  # convert from % to fraction
-    except KeyError:
-        print('❌ Could not find MAP=100 row in VE table.')
-        return None
-    return ve_vs_rpm
 def get_ve_from_table(rpm,ve_vs_rpm):
    rpms = ve_vs_rpm.index.to_numpy(dtype=float)
    ves = ve_vs_rpm.values
