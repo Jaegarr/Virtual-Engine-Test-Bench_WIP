@@ -18,12 +18,10 @@ def SingleRun(rpm, displacement_l, ve_mode, ve_table=None, constant_ve=None):
     """
     results = []
     throttles = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-    
     if ve_mode == 'table':
         ve_list = cal.get_ve_from_table(rpm, throttles, ve_table)
     else:
         ve_list = [constant_ve] * len(throttles)
-
     for throttle, ve in zip(throttles, ve_list):
         mdotAir = calculate_air_mass_flow(rpm, displacement_l, ve)
         t = calculate_torque(rpm, mdotAir, displacement_l)
@@ -32,7 +30,6 @@ def SingleRun(rpm, displacement_l, ve_mode, ve_table=None, constant_ve=None):
         row = [rpm, throttle, t, p, hp]
         results.append(row)
     return results
-
 def FullThrottleResponse(RPM_min, RPM_max, displacement_l, ve_mode, ve_table=None, constant_ve=None):
     """
     Simulate engine performance at full throttle (100%) over a specified RPM range.
@@ -63,7 +60,6 @@ def FullThrottleResponse(RPM_min, RPM_max, displacement_l, ve_mode, ve_table=Non
         row = [rpm, throttle, t, p, hp]
         results.append(row)
     return results
-
 def FullRangeSweep(RPM_min, RPM_max, displacement_l, ve_mode, ve_table=None, constant_ve=None):
     """
     Perform a full simulation sweep across RPM and throttle range.

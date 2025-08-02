@@ -1,6 +1,5 @@
 import math
 import Calibration as cal
-
 def calculate_air_mass_flow(rpm, displacement_l, ve, rho=1.22588):
     '''
     Estimate the air mass flow rate (kg/s) into a naturally aspirated 4‑stroke engine.
@@ -21,7 +20,6 @@ def calculate_air_mass_flow(rpm, displacement_l, ve, rho=1.22588):
     displacement_m3 = displacement_l / 1e3
     mdot = displacement_m3 * ve * rpm * rho / (2 * 60)
     return mdot
-
 def calculate_torque(rpm, mdotAir, displacement_l, LHV=44e6, eff=0.3):
     '''
     Estimate engine brake torque (Nm) based on air mass flow and engine parameters.
@@ -42,19 +40,15 @@ def calculate_torque(rpm, mdotAir, displacement_l, LHV=44e6, eff=0.3):
     '''
     mdotFuel = mdotAir / cal.get_target_lambda(rpm)
     gross_torque = mdotFuel * LHV * eff / (rpm * 2 * math.pi / 60)
-
     fmep = 0.25 + 0.02 * rpm / 1000 + 0.03 * (rpm / 1000) ** 2  # bar
     fmep_pa = fmep * 1e5
     displacement_m3 = displacement_l / 1e3
     torque_fmep = fmep_pa * displacement_m3 / (4 * math.pi)
-
     pmep = 0.02 + 0.00001 * rpm  # bar
     pmep_pa = pmep * 1e5
     torque_pmep = pmep_pa * displacement_m3 / (4 * math.pi)
-
     torque_net = gross_torque - (torque_fmep + torque_pmep)
     return max(torque_net, 0)
-
 def calculate_power(rpm, torque):
     '''
     Convert torque (Nm) and engine speed (rpm) into power output (kW).
@@ -67,7 +61,6 @@ def calculate_power(rpm, torque):
         float: Power in kilowatts (kW).
     '''
     return (torque * rpm * 2 * math.pi / 60) / 1000
-
 def calculate_horsePower(rpm, torque):
     '''
     Convert torque (Nm) and engine speed (rpm) into power output in horsepower.

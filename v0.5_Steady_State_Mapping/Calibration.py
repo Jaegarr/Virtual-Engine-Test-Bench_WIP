@@ -4,11 +4,7 @@ import math, os
 from scipy.interpolate import RegularGridInterpolator
 
 # Simplified target lambda map by RPM (could be replaced by a CSV/config)
-lambda_target_map = pd.DataFrame({
-    'RPM': [1000, 2000, 3000, 4000, 5000, 6000, 7000],
-    'Lambda': [1.0, 1.0, 0.95, 0.92, 0.90, 0.88, 0.88]
-})
-
+lambda_target_map = pd.DataFrame({ 'RPM': [1000, 2000, 3000, 4000, 5000, 6000, 7000], 'Lambda': [1.0, 1.0, 0.95, 0.92, 0.90, 0.88, 0.88]})
 def get_target_lambda(rpm, AFR=14.7):
     '''
     Calculate the target air–fuel ratio (AFR) based on engine speed.
@@ -27,7 +23,6 @@ def get_target_lambda(rpm, AFR=14.7):
     target_lambda = float(np.interp(rpm, lambda_target_map['RPM'], lambda_target_map['Lambda']))
     target_AFR = AFR * target_lambda
     return target_AFR
-
 def load_ve_table(file_path=None):
     '''
     Load a Volumetric Efficiency (VE) table from a CSV file.
@@ -44,12 +39,9 @@ def load_ve_table(file_path=None):
         - CSV must have manifold pressure values as the first column header.
     '''
     if not file_path:
-        file_path = os.path.join(
-            'C:/Users/berke/OneDrive/Masaüstü/GitHub/Virtual-Engine-Test-Bench/v0.5_Steady_State_Mapping/Nissan_350Z_VE.csv'
-        )
+        file_path = os.path.join('C:/Users/berke/OneDrive/Masaüstü/GitHub/Virtual-Engine-Test-Bench/v0.5_Steady_State_Mapping/Nissan_350Z_VE.csv'      )
     ve_table = pd.read_csv(file_path, index_col=0)
     return ve_table
-
 def get_ve_from_table(rpm, throttle, ve_table):
     '''
     Interpolate VE (Volumetric Efficiency) values from a VE table 
@@ -72,12 +64,7 @@ def get_ve_from_table(rpm, throttle, ve_table):
     map_values = ve_table.index.to_numpy(dtype=float)      # MAP breakpoints (kPa)
     rpm_values = ve_table.columns.to_numpy(dtype=float)    # RPM breakpoints
     ve_values = ve_table.to_numpy() / 100                  # VE as decimal
-
-    interpolator = RegularGridInterpolator(
-        (map_values, rpm_values), ve_values, 
-        bounds_error=False, fill_value=None
-    )
-
+    interpolator = RegularGridInterpolator((map_values, rpm_values), ve_values, bounds_error=False, fill_value=None)
     for t in throttle:
         map_kpa = 20 + t * (100 - 20)  # simple linear MAP estimate by throttle
         ve = interpolator([[map_kpa, rpm]])[0]

@@ -1,7 +1,6 @@
 import os
 import datetime
 import re
-
 def clean_filename(name):
     """
     Clean a string to make it a valid filename by replacing invalid characters.
@@ -14,7 +13,6 @@ def clean_filename(name):
     """
     # Replace invalid filename characters (\/:"*?<>|) with underscores
     return re.sub(r'[\\/:"*?<>|]+', "_", name)
-
 def export_results_to_csv(data, default_folder="Results"):
     """
     Export a pandas DataFrame to a CSV file with a user-defined filename and folder.
@@ -42,7 +40,6 @@ def export_results_to_csv(data, default_folder="Results"):
     file = clean_filename(file) if file else "results"
     now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"{file}_{now}.csv"
-
     print(f"📁 Enter folder path to save the file (leave empty to use default folder: '{default_folder}' inside the project):")
     folder = input().strip()
     if folder:
@@ -52,10 +49,8 @@ def export_results_to_csv(data, default_folder="Results"):
         # Use 'Results' folder inside the current script directory by default
         script_dir = os.path.dirname(os.path.abspath(__file__))
         full_folder = os.path.join(script_dir, default_folder)
-
     # Create the folder if it doesn't exist
     os.makedirs(full_folder, exist_ok=True)
     full_path = os.path.join(full_folder, filename)
-
     data.to_csv(full_path, index=False)
     print(f"✅ Results exported to: {full_path}")
