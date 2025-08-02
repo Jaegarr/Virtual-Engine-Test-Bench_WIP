@@ -15,8 +15,8 @@ def calculate_air_mass_flow(rpm, displacement_l, ve, rho = 1.22588):
     displacement_m3 = displacement_l/1e3
     mdot = displacement_m3*ve*rpm*rho/(2*60)
     return mdot
-def calculate_torque(rpm, throttle, mdotAir, displacement_l, LHV = 44e6, eff = 0.3):
-    mdotFuel = mdotAir*throttle/cal.get_target_lambda(rpm)
+def calculate_torque(rpm, mdotAir, displacement_l, LHV = 44e6, eff = 0.3):
+    mdotFuel = mdotAir/cal.get_target_lambda(rpm)
     gross_torque = mdotFuel*LHV*eff/(rpm*2*math.pi/60) # In Nm
     fmep = 0.25 + 0.02*rpm/1000 + 0.03*(rpm/1000)**2
     displacement_m3 = displacement_l/1e3
