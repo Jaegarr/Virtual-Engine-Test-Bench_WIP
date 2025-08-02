@@ -54,7 +54,7 @@ while True:
     print('Please select the test you want to execute:')
     print("1 - Single run")
     print("2 - Full Throttle Response")
-    print("3 - RPM sweep")
+    print("3 - Full sweep")
     print("4 - Exit")
     testMode = input("Enter your test choice(1, 2, 3, 4): ")
     if testMode == '1':
@@ -106,7 +106,7 @@ while True:
         export_results_to_csv(df)
         sys.exit()
     elif testMode == '3':
-        print("You selected RPM sweep")
+        print("You selected Full sweep")
         while True:
             try:
                 print('Enter minimum RPM:')
