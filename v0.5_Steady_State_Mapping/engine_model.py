@@ -73,3 +73,23 @@ def calculate_horsePower(rpm, torque):
         float: Power in mechanical horsepower (hp).
     '''
     return (torque * rpm * 2 * math.pi / 60) / 745.7
+def estimate_Emissions(mDotFuel, AFR,eff=0.3):
+    """
+    Rough estimate of emissions based on fuel mass flow and AFR.
+    fuel_mass_flow: kg/s
+    afr: actual AFR
+    combustion_eff: assumed combustion efficiency (0-1)
+    Returns CO2, CO, NOx and HC in g/s
+    """
+    # Empirical Scaling Factors
+    k_co = 200
+    k_nox = 80
+    k_thc = 30
+    lambda_val = AFR / 14.7
+    mDotco2 = mDotFuel * 3.09 # CO2: 3.09 kg CO2 per kg fuel burned
+    mDotco = mDotFuel * k_co * max(0, abs(1.2 - lambda_val))
+    mDotnox = mDotFuel * k_nox * max(0, abs(1 - lambda_val))
+    mDotthc = mDotFuel * k_thc * (1 - eff)
+    emissions = 1000 * [mDotco2, mDotco, mDotnox, mDotthc] # g/s
+    return emissions
+
