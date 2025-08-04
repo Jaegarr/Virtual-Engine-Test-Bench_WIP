@@ -65,8 +65,15 @@ def get_ve_from_table(rpm, throttle, ve_table):
     rpm_values = ve_table.columns.to_numpy(dtype=float)    # RPM breakpoints
     ve_values = ve_table.to_numpy() / 100                  # VE as decimal
     interpolator = RegularGridInterpolator((map_values, rpm_values), ve_values, bounds_error=False, fill_value=None)
-    for t in throttle:
-        map_kpa = 20 + t * (100 - 20)  # simple linear MAP estimate by throttle
+    if isinstance(throttle, (list, tuple, np.ndarray)):
+        ve_list = []
+        for t in throttle:
+            map_kpa = 20 + t * (100 - 20)
+            ve = interpolator([[map_kpa, rpm]])[0]
+            ve_list.append(ve)
+        return ve_list
+    else:
+        # single value
+        map_kpa = 20 + throttle * (100 - 20)
         ve = interpolator([[map_kpa, rpm]])[0]
-        ve_results.append(ve)
-    return ve_results
+        return ve
