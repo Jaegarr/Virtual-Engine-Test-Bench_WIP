@@ -1,7 +1,7 @@
 # 🧪 Virtual Engine Test Bench
 **Version: v0.1.0 — Baseline Pipeline Complete; now advancing toward v0.5.0**
 
-A **Python-based simulation tool** for internal combustion engine (ICE) development.  
+**Python-based simulation tool** for internal combustion engine (ICE) development.  
 It emulates a real engine test bench workflow — as if the virtual engine were mounted on a dyno.
 
 The project begins with a simplified torque & power model and evolves in fidelity with each version — reflecting how a calibration engineer incrementally builds model complexity.
