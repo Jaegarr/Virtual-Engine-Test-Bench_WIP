@@ -27,13 +27,13 @@ while True:
             try:
                 print('Enter Volumetric Efficiency(VE):')
                 ve = float(input())
-                if ve < 0.6 or ve > 1.2:
-                    print('VE must be between 0.6 and 1.2.')
+                if ve < 0.6 or ve > 1.8:
+                    print('VE must be between 0.6 and 1.8.')
                     continue
                 ve_mode = 'constant'
                 break
             except:
-                print('Invalid input. VE must be between 0.6 and 1.2')
+                print('Invalid input. VE must be between 0.6 and 1.8')
         break  # break outer loop after success
     elif choice == '2':
         file_path = input('Enter VE table CSV path (leave empty to use default): ').strip()
