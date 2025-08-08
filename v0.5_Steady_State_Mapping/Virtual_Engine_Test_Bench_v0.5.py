@@ -1,5 +1,5 @@
 from Test_Modes import FullRangeSweep, WideOpenThrottle, SingleRun
-from Reporting import export_results_to_csv,rpm_vs_plots
+from Reporting import export_results_to_csv,rpm_vs_plots, emission_plots
 import sys
 import pandas as pd
 import Calibration as cal
@@ -103,8 +103,9 @@ while True:
         else:
             results = WideOpenThrottle(rpmMin, rpmMax, displacement, ve_mode, constant_ve=ve)
         df = pd.DataFrame(results, columns=['Engine Speed (RPM)', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower',  'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
-        rpm_vs_plots(df)
         export_results_to_csv(df)
+        rpm_vs_plots(df)
+        emission_plots(df)
         sys.exit()
     elif testMode == '3':
         print("You selected Full sweep")

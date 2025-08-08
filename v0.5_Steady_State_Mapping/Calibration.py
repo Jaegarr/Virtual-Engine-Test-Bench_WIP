@@ -4,7 +4,7 @@ import math, os
 from scipy.interpolate import RegularGridInterpolator
 
 # Simplified target lambda map by RPM (could be replaced by a CSV/config)
-lambda_target_map = pd.DataFrame({ 'RPM': [1000, 2000, 3000, 4000, 5000, 6000, 7000], 'Lambda': [1.0, 1.0, 0.95, 0.92, 0.90, 0.88, 0.88]})
+lambda_target_map = pd.DataFrame({ 'RPM': [1000, 2000, 3000, 4000, 5000, 6000, 7000], 'Lambda': [1.0, 1.0, 0.95, 0.92, 0.90, 0.88, 0.88]})  #1.0, 1.0, 0.95, 0.92, 0.90, 0.88, 0.88
 def get_target_lambda(rpm, AFR=14.7):
     '''
     Calculate the target air–fuel ratio (AFR) based on engine speed.
@@ -58,10 +58,3 @@ def get_ve_from_table(rpm, throttle, ve_table):
         map_kpa = 20 + throttle * (100 - 20)
         ve = interpolator([[map_kpa, rpm]])[0]
         return ve
-def get_bsfc_from_table(torque, rpm, BSFC_table):
-    bsfc_results = []
-    torque_values = BSFC_table.index.to_numpy(dtype=float)
-    rpm_values = BSFC_table.columns.to_numpy(dtype=float)
-    bsfc_values = BSFC_table.to_numpy()
-    bsfc = RegularGridInterpolator((torque_values, rpm_values), bsfc_values, bounds_error=False, fill_value=None)
-    return bsfc
