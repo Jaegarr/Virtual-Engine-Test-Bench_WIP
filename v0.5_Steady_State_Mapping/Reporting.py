@@ -1,18 +1,7 @@
 import os
 import datetime
 import re
-def clean_filename(name):
-    """
-    Clean a string to make it a valid filename by replacing invalid characters.
-
-    Parameters:
-        name (str): The original filename string.
-
-    Returns:
-        str: A cleaned filename string with invalid characters replaced by underscores.
-    """
-    # Replace invalid filename characters (\/:"*?<>|) with underscores
-    return re.sub(r'[\\/:"*?<>|]+', "_", name)
+import matplotlib.pyplot
 def export_results_to_csv(data, default_folder="Results"):
     """
     Export a pandas DataFrame to a CSV file with a user-defined filename and folder.
@@ -37,13 +26,13 @@ def export_results_to_csv(data, default_folder="Results"):
     """
     print("📄 Enter a filename to save your results (without .csv):")
     file = input().strip()
-    file = clean_filename(file) if file else "results"
+    file = re.sub(r'[\\/:"*?<>|]+', "_", file) if file else "results" # Replace invalid filename characters (\/:"*?<>|) with underscores
     now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"{file}_{now}.csv"
     print(f"📁 Enter folder path to save the file (leave empty to use default folder: '{default_folder}' inside the project):")
     folder = input().strip()
     if folder:
-        folder = clean_filename(folder)
+        folder = re.sub(r'[\\/:"*?<>|]+', "_", folder)
         full_folder = folder
     else:
         # Use 'Results' folder inside the current script directory by default
@@ -54,3 +43,16 @@ def export_results_to_csv(data, default_folder="Results"):
     full_path = os.path.join(full_folder, filename)
     data.to_csv(full_path, index=False)
     print(f"✅ Results exported to: {full_path}")
+def rpm_vs_plots(df):
+    fig, ax1 = matplotlib.pyplot.subplots()
+    ax1.set_xlabel('Engine Speed (RPM)')
+    ax1.set_ylabel('Torque (Nm)', color='tab:blue')
+    ax1.plot(df['Engine Speed (RPM)'], df['Torque (Nm)'], color='tab:blue', label='Torque')
+    ax1.tick_params(axis='y', labelcolor='tab:blue')
+    ax2 = ax1.twinx()
+    ax2.set_ylabel('Power (kW)', color='tab:red')
+    ax2.plot(df['Engine Speed (RPM)'], df['Power (kW)'], color='tab:red', label='Power')
+    ax2.tick_params(axis='y', labelcolor='tab:red')
+    matplotlib.pyplot.title('Torque & Power Curves - WOT')
+    fig.tight_layout()
+    matplotlib.pyplot.show()

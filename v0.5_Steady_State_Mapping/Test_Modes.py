@@ -30,7 +30,7 @@ def SingleRun(rpm, displacement_l, ve_mode, ve_table=None, constant_ve=None):
         row = [rpm, throttle, t, p, hp] + emissions
         results.append(row)
     return results
-def FullThrottleResponse(RPM_min, RPM_max, displacement_l, ve_mode, ve_table=None, constant_ve=None):
+def WideOpenThrottle(RPM_min, RPM_max, displacement_l, ve_mode, ve_table=None, constant_ve=None):
     """
     Simulate engine performance at full throttle (100%) over a specified RPM range.
 

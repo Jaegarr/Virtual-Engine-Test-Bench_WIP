@@ -1,5 +1,5 @@
-from Test_Modes import FullRangeSweep, FullThrottleResponse, SingleRun
-from Reporting import export_results_to_csv
+from Test_Modes import FullRangeSweep, WideOpenThrottle, SingleRun
+from Reporting import export_results_to_csv,rpm_vs_plots
 import sys
 import pandas as pd
 import Calibration as cal
@@ -53,7 +53,7 @@ while True:
 while True:
     print('Please select the test you want to execute:')
     print("1 - Single run")
-    print("2 - Full Throttle Response")
+    print("2 - Wide Open Throttle")
     print("3 - Full sweep")
     print("4 - Exit")
     testMode = input("Enter your test choice(1, 2, 3, 4): ")
@@ -73,7 +73,7 @@ while True:
             results = SingleRun(rpm, displacement, ve_mode, ve_table=ve_vs_rpm)
         else:
             results = SingleRun(rpm, displacement, ve_mode, constant_ve=ve)
-            df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower',  'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
+            df = pd.DataFrame(results, columns=['Engine Speed (RPM)', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower',  'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
             export_results_to_csv(df)
             sys.exit()
     elif testMode == '2':
@@ -99,10 +99,11 @@ while True:
             except:
                 print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
         if ve_mode == 'table':
-            results = FullThrottleResponse(rpmMin, rpmMax, displacement, ve_mode, ve_table=ve_vs_rpm)
+            results = WideOpenThrottle(rpmMin, rpmMax, displacement, ve_mode, ve_table=ve_vs_rpm)
         else:
-            results = FullThrottleResponse(rpmMin, rpmMax, displacement, ve_mode, constant_ve=ve)
-        df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower',  'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
+            results = WideOpenThrottle(rpmMin, rpmMax, displacement, ve_mode, constant_ve=ve)
+        df = pd.DataFrame(results, columns=['Engine Speed (RPM)', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower',  'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
+        rpm_vs_plots(df)
         export_results_to_csv(df)
         sys.exit()
     elif testMode == '3':
@@ -131,7 +132,7 @@ while True:
             results = FullRangeSweep(rpmMin, rpmMax, displacement, ve_mode, ve_table=ve_vs_rpm)
         else:
             results = FullRangeSweep(rpmMin, rpmMax, displacement, ve_mode, constant_ve=ve)
-        df = pd.DataFrame(results, columns=['RPM', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower',  'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
+        df = pd.DataFrame(results, columns=['Engine Speed (RPM)', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower',  'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
         export_results_to_csv(df)
         sys.exit()
     elif testMode == '4':
