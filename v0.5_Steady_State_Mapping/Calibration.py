@@ -23,25 +23,6 @@ def get_target_lambda(rpm, AFR=14.7):
     target_lambda = float(np.interp(rpm, lambda_target_map['RPM'], lambda_target_map['Lambda']))
     target_AFR = AFR * target_lambda
     return target_AFR
-def load_ve_table(file_path=None):
-    '''
-    Load a Volumetric Efficiency (VE) table from a CSV file.
-
-    Parameters:
-        file_path (str, optional): Path to the VE CSV file.
-            - If None, loads the default Nissan 350Z VE table from the project folder.
-
-    Returns:
-        pandas.DataFrame: VE table with manifold pressure (kPa) as index and RPM as columns.
-
-    Notes:
-        - VE values are typically in percent in the CSV (e.g., 80 means 0.80).
-        - CSV must have manifold pressure values as the first column header.
-    '''
-    if not file_path:
-        file_path = os.path.join('C:/Users/berke/OneDrive/Masaüstü/GitHub/Virtual-Engine-Test-Bench/v0.5_Steady_State_Mapping/Nissan_350Z_VE.csv'      )
-    ve_table = pd.read_csv(file_path, index_col=0)
-    return ve_table
 def get_ve_from_table(rpm, throttle, ve_table):
     '''
     Interpolate VE (Volumetric Efficiency) values from a VE table 
@@ -77,3 +58,10 @@ def get_ve_from_table(rpm, throttle, ve_table):
         map_kpa = 20 + throttle * (100 - 20)
         ve = interpolator([[map_kpa, rpm]])[0]
         return ve
+def get_bsfc_from_table(torque, rpm, BSFC_table):
+    bsfc_results = []
+    torque_values = BSFC_table.index.to_numpy(dtype=float)
+    rpm_values = BSFC_table.columns.to_numpy(dtype=float)
+    bsfc_values = BSFC_table.to_numpy()
+    bsfc = RegularGridInterpolator((torque_values, rpm_values), bsfc_values, bounds_error=False, fill_value=None)
+    return bsfc

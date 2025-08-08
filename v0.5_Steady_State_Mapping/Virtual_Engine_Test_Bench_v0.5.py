@@ -37,7 +37,7 @@ while True:
         break  # break outer loop after success
     elif choice == '2':
         file_path = input('Enter VE table CSV path (leave empty to use default): ').strip()
-        ve_vs_rpm = cal.load_ve_table(file_path if file_path else None)
+        ve_vs_rpm =  pd.read_csv(file_path if file_path else 'C:/Users/berke/OneDrive/Masaüstü/GitHub/Virtual-Engine-Test-Bench/v0.5_Steady_State_Mapping/Nissan_350Z_VE.csv', index_col=0)
         if ve_vs_rpm is None:
             print('❌ Failed to load VE data. Try again.')
             continue  # goes back to asking VE input method
