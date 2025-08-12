@@ -1,7 +1,6 @@
-import os
-import datetime
-import re
-import matplotlib.pyplot
+import os, datetime, re
+import matplotlib.pyplot as plt
+import numpy as np
 def export_results_to_csv(data, default_folder="Results"):
     """
     Export a pandas DataFrame to a CSV file with a user-defined filename and folder.
@@ -44,18 +43,71 @@ def export_results_to_csv(data, default_folder="Results"):
     data.to_csv(full_path, index=False)
     print(f"✅ Results exported to: {full_path}")
 def rpm_vs_plots(df):
-    fig, ax1 = matplotlib.pyplot.subplots()
-    ax1.set_xlabel('Engine Speed (RPM)')
-    ax1.set_ylabel('Torque (Nm)')
-    ax1.plot(df['Engine Speed (RPM)'], df['Torque (Nm)'], color='tab:blue', label='Torque')
-    ax2 = ax1.twinx()
-    ax2.set_ylabel('Power (kW)')
-    ax2.plot(df['Engine Speed (RPM)'], df['Power (kW)'], color='tab:red', label='Power')
-    matplotlib.pyplot.title('Torque & Power Curves - WOT')
-    fig.tight_layout()
-    matplotlib.pyplot.show()
+    unique_throttle = np.unique(df['Throttle'])
+    if (len(unique_throttle) == 1):  # WOT case
+        fig, ax1 = plt.subplots()
+        ax1.set_xlabel('Engine Speed (RPM)')
+        ax1.set_ylabel('Torque (Nm)')
+        ax1.plot(df['Engine Speed (RPM)'], df['Torque (Nm)'], label='Torque')
+        ax2 = ax1.twinx()
+        ax2.set_ylabel('Power (kW)')
+        ax2.plot(df['Engine Speed (RPM)'], df['Power (kW)'], label='Power')
+        ax1.set_title('Torque & Power Curves — WOT')
+        fig.tight_layout()
+        plt.show()
+        return
+    else:
+        # Multi-throttle case — collect inputs first
+        requested = []
+        while True:
+            request = input("Select at least 2 and up to 10 throttle positions (e.g., 0.4, 0.7, 1.0) or 'q' to finish: ").strip()
+            if request.lower() == 'q':
+                break
+            try:
+                new_vals = [float(x) for x in request.replace('%', '').split(',') if x.strip() != '']
+            except ValueError:
+                print("❌ Could not parse throttle inputs. Use numbers like: 0.4, 0.7, 1.0")
+                continue
+            requested.extend(new_vals)
+            if len(requested) >= 2:
+                more = input("Do you want to add more throttle values? (y/n): ").strip().lower()
+                if more == 'n':
+                    break
+        if not (2 <= len(requested) <= 10):
+            raise ValueError("Please provide between 2 and 10 throttle values.")
+        # Clip to [0,1], dedupe, sort
+        requested = np.clip(np.array(requested, dtype=float), 0.0, 1.0)
+        requested = sorted(set(requested))
+        # Torque figure
+        plt.figure()
+        for throttle in requested:
+            sub = df[np.isclose(df['Throttle'].astype(float), throttle, atol=1e-3)].copy()
+            if sub.empty:
+                continue
+            sub.sort_values('Engine Speed (RPM)', inplace=True)
+            plt.plot(sub['Engine Speed (RPM)'], sub['Torque (Nm)'], label=f'Throttle {throttle:.2f}')
+        plt.title('Torque vs RPM — Full Sweep')
+        plt.xlabel('Engine Speed (RPM)')
+        plt.ylabel('Torque (Nm)')
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+        # Power figure
+        plt.figure()
+        for throttle in requested:
+            sub = df[np.isclose(df['Throttle'].astype(float), throttle, atol=1e-3)].copy()
+            if sub.empty:
+                continue
+            sub.sort_values('Engine Speed (RPM)', inplace=True)
+            plt.plot(sub['Engine Speed (RPM)'], sub['Power (kW)'], label=f'Throttle {throttle:.2f}')
+        plt.title('Power vs RPM — Full Sweep')
+        plt.xlabel('Engine Speed (RPM)')
+        plt.ylabel('Power (kW)')
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
 def emission_plots(df):
-    fig = matplotlib.pyplot.subplot()
+    fig = plt.subplot()
     fig.set_xlabel('Engine Speed (RPM)')
     fig.set_ylabel('Emissions (g/s)')
     fig.plot(df['Engine Speed (RPM)'], df['CO2(g/s)'], label='CO2')
@@ -63,5 +115,5 @@ def emission_plots(df):
     fig.plot(df['Engine Speed (RPM)'], df['NOx(g/s)'], color='tab:blue', label='NOx')
     fig.plot(df['Engine Speed (RPM)'], df['HC(g/s)'], color='tab:green', label='HC')
     fig.legend()
-    matplotlib.pyplot.title('Emissions')
-    matplotlib.pyplot.show()
+    plt.title('Emissions')
+    plt.show()

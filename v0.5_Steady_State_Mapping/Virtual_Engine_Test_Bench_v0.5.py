@@ -105,8 +105,14 @@ while True:
         df = pd.DataFrame(results, columns=['Engine Speed (RPM)', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower',  'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
         export_results_to_csv(df)
         rpm_vs_plots(df)
-        emission_plots(df)
-        sys.exit()
+        emissionplot = input('Would you like to plot emissions(Yes/No):')
+        if emissionplot.lower() == 'yes':
+            emission_plots(df)
+        elif emissionplot.lower() == 'no':
+            sys.exit()
+        else:
+            print('Please type Yes or No:')
+            continue
     elif testMode == '3':
         print("You selected Full sweep")
         while True:
@@ -135,6 +141,7 @@ while True:
             results = FullRangeSweep(rpmMin, rpmMax, displacement, ve_mode, constant_ve=ve)
         df = pd.DataFrame(results, columns=['Engine Speed (RPM)', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower',  'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
         export_results_to_csv(df)
+        rpm_vs_plots(df)
         sys.exit()
     elif testMode == '4':
         print("Exiting program.")
