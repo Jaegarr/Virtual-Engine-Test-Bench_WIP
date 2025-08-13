@@ -1,5 +1,6 @@
 import math
 import Calibration as cal
+from scipy.interpolate import RegularGridInterpolator
 def calculate_air_mass_flow(rpm, displacement_l, ve, rho=1.22588):
     '''
     Estimate the air mass flow rate (kg/s) into a naturally aspirated 4‑stroke engine.
@@ -95,3 +96,74 @@ def estimate_Emissions(mDotFuel, AFR, eff):
     emissions_gps = [val * 1000 for val in emissions_kgps]
     return emissions_gps
 
+def estimate_emissions(mDotFuel, AFR, comb_eff, load_frac=0.6, ei_co2_g_per_kg=3090.0):
+    """
+    Estimate engine-out emissions as g/s from fuel flow, AFR, and a load proxy.
+
+    Parameters
+    ----------
+    mDotFuel_kgps : float
+        Fuel mass flow [kg/s]
+    AFR : float
+        Actual air-fuel ratio (mass-based). Stoich gasoline ≈ 14.7.
+    comb_eff : float
+        Combustion efficiency (0..1). Influences HC primarily.
+    load_frac : float
+        0..1 proxy for load/BMEP (affects NOx amplitude).
+    ei_co2_g_per_kg : float
+        Emission index for CO2 [g/kg fuel]. ~3090 for gasoline.
+
+    Returns
+    -------
+    dict : {'CO2': g/s, 'CO': g/s, 'NOx': g/s, 'HC': g/s}
+        Engine-out (pre-catalyst) emission rates.
+    """
+
+    lam = AFR / 14.7
+    lam = max(0.5, min(1.6, lam))
+    # --- CO (g/kg fuel) ---
+    # Very low when lean; rises rapidly rich of stoich.
+    # Smooth curve: quadratic increase as lambda goes below 1.
+    # Typical hot engine-out EI_CO at λ≈0.9 can be O(100 g/kg), lean ~<5 g/kg.
+    if lam >= 1.0:
+        EI_CO = 3.0 * (1 + 4.0*(lam - 1.0))  # slightly increases if very lean due to misfire risk
+    else:
+        EI_CO = 5.0 + 800.0*(1.0 - lam)**2   # rich penalty
+    EI_CO = min(EI_CO, 400.0)  # cap to avoid extremes
+
+    # --- HC (g/kg fuel) ---
+    # Rises rich (over-fuel/quench) and very lean (misfire), plus incomplete combustion.
+    rich_term = 200.0*(max(0.0, 1.0 - lam))**2
+    lean_term = 120.0*(max(0.0, lam - 1.15))**2
+    incomp_term = 50.0*(1.0 - max(0.0, min(1.0, comb_eff)))
+    EI_HC = 2.0 + rich_term + lean_term + incomp_term
+    EI_HC = min(EI_HC, 300.0)
+
+    # --- NOx (g/kg fuel) ---
+    # Peak slightly lean of stoich; scale with load (temperature).
+    # Use a Gaussian around lambda≈1.05 with width ~0.08–0.10.
+    lam_peak = 1.05
+    sigma = 0.09
+    peak_noX = 18.0 * (load_frac**0.7)  # higher load → more NOx
+    EI_NOx = peak_noX * math.exp(-0.5*((lam - lam_peak)/sigma)**2)
+    # Mild lean/rich suppression already handled by Gaussian
+
+    # --- CO2 (g/kg fuel) ---
+    EI_CO2 = ei_co2_g_per_kg  # essentially fixed by fuel chemistry
+
+    # Convert EI [g/kg fuel] to g/s using fuel flow [kg/s]
+    gps_CO2 = EI_CO2 * mDotFuel
+    gps_CO  = EI_CO  * mDotFuel
+    gps_NOx = EI_NOx * mDotFuel
+    gps_HC  = EI_HC  * mDotFuel
+
+    return {'CO2': gps_CO2, 'CO': gps_CO, 'NOx': gps_NOx, 'HC': gps_HC}
+'''
+def get_bsfc_from_table(torque, rpm, BSFC_table):
+    bsfc_results = []
+    torque_values = BSFC_table.index.to_numpy(dtype=float)
+    rpm_values = BSFC_table.columns.to_numpy(dtype=float)
+    bsfc_values = BSFC_table.to_numpy()
+    bsfc = RegularGridInterpolator((torque_values, rpm_values), bsfc_values, bounds_error=False, fill_value=None)
+    return bsfc
+'''

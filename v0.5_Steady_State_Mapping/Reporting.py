@@ -46,12 +46,17 @@ def rpm_vs_plots(df):
     unique_throttle = np.unique(df['Throttle'])
     if (len(unique_throttle) == 1):  # WOT case
         fig, ax1 = plt.subplots()
-        ax1.set_xlabel('Engine Speed (RPM)')
-        ax1.set_ylabel('Torque (Nm)')
-        ax1.plot(df['Engine Speed (RPM)'], df['Torque (Nm)'], label='Torque')
+        plt.grid(True)
+        ax1.set_ylabel('Power (kW)')
+        ax1.plot(df['Engine Speed (RPM)'], df['Power (kW)'], label = 'Power', color = 'red')
+        ax1.set_ylim(0, 240)
+        ax1.set_yticks(np.arange(0, 240, 20))
         ax2 = ax1.twinx()
-        ax2.set_ylabel('Power (kW)')
-        ax2.plot(df['Engine Speed (RPM)'], df['Power (kW)'], label='Power')
+        ax2.set_xlabel('Engine Speed (RPM)')
+        ax2.set_ylabel('Torque (Nm)')
+        ax2.plot(df['Engine Speed (RPM)'], df['Torque (Nm)'], label = 'Torque', color = 'blue')
+        ax2.set_ylim(0, 600)
+        ax2.set_yticks(np.arange(0,600,50))
         ax1.set_title('Torque & Power Curves — WOT')
         fig.tight_layout()
         plt.show()
@@ -80,6 +85,7 @@ def rpm_vs_plots(df):
         requested = sorted(set(requested))
         # Torque figure
         plt.figure()
+        plt.grid(True)
         for throttle in requested:
             sub = df[np.isclose(df['Throttle'].astype(float), throttle, atol=1e-3)].copy()
             if sub.empty:
@@ -94,6 +100,7 @@ def rpm_vs_plots(df):
         plt.show()
         # Power figure
         plt.figure()
+        plt.grid(True)
         for throttle in requested:
             sub = df[np.isclose(df['Throttle'].astype(float), throttle, atol=1e-3)].copy()
             if sub.empty:

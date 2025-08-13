@@ -108,6 +108,7 @@ while True:
         emissionplot = input('Would you like to plot emissions(Yes/No):')
         if emissionplot.lower() == 'yes':
             emission_plots(df)
+            sys.exit()
         elif emissionplot.lower() == 'no':
             sys.exit()
         else:
