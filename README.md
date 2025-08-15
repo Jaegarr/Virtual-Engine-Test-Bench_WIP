@@ -1,7 +1,7 @@
 # 🧪 Virtual Engine Test Bench
-**Version: v0.1.0 — Baseline Pipeline Complete; now advancing toward v0.5.0**
+**Version: v0.5.0 — Minimum Viable Product (in progress)**
 
-**Python-based simulation tool** for internal combustion engine (ICE) development.  
+Python-based simulation tool for internal combustion engine (ICE) development.  
 It emulates a real engine test bench workflow — as if the virtual engine were mounted on a dyno.
 
 The project begins with a simplified torque & power model and evolves in fidelity with each version — reflecting how a calibration engineer incrementally builds model complexity.
@@ -17,64 +17,68 @@ The project begins with a simplified torque & power model and evolves in fidelit
 
 ---
 
-## ✅ Current Features (v0.1.0)
-- 🔧 **CLI interface** to run single-point or RPM sweep simulations
-- ⚙️ **Airflow, torque, power & horsepower** calculated from displacement & VE
-- 📄 **Pretty DataFrame output** with values rounded to 3 decimals
-- 📦 **Automatic CSV export** to `/Results`, timestamped & user-named
-- 📈 **Basic RPM sweep mode** for full-throttle curve generation
-- 🧱 **Modular architecture**: separate simulation (`Test_Modes.py`) and reporting (`Reporting.py`)
-- ✅ **Input validation** for VE, RPM, displacement, units
+## ✅ Current Features (v0.5.0 — Minimum Viable Product)
+- **CLI interface** to run single-point or RPM sweep simulations
+- **Airflow, torque, power & horsepower** calculated from displacement, RPM, and **VE map interpolation**
+- **DataFrame output** with values rounded to 3 decimals, ready for reporting
+- **Automatic CSV export** to `/Results`, timestamped & user-named
+- **Full-throttle RPM sweep** mode for curve generation  
+- **Modular architecture**: simulation (`Test_Modes.py`), reporting (`Reporting.py`), and config separated
+- **VE map loader** — user can upload custom VE vs RPM/Load maps or use the built-in default (Nissan 350Z dataset)
+- **Simplistic emissions model** estimating CO₂, CO, NOx, THC from fuel flow & AFR (empirical coefficients, user-swappable)
+- **FMEP model** applied to improve torque realism
+- **Input validation** for VE, RPM, displacement, units
+- **Configurable test types** — detect WOT tests automatically or prompt for throttle-position filtering
 
 ---
 
 ## 🧱 Core Components
-✅ Baseline torque & power calculator  
-✅ Air mass flow model (constant VE)  
-✅ CLI simulation modes (single point, RPM sweep)  
-✅ CSV export module  
-✅ VE map loader (ready for v0.5.0)  
-✅ Preliminary emissions model (fuel-based estimation)  
-⬜ BSFC map integration  
-⬜ Spark timing, knock-limited torque  
-⬜ Turbocharging model  
-⬜ PID control layers (idle, boost)  
-⬜ GUI & reporting dashboard
+| Status | Component |
+|--------|-----------|
+| ✅ | Baseline torque & power calculator |
+| ✅ | Air mass flow model (VE map support) |
+| ✅ | CLI simulation modes (single point, RPM sweep) |
+| ✅ | CSV export module |
+| ✅ | VE map loader & interpolation |
+| ✅ | Preliminary emissions model |
+| ✅ | FMEP friction model |
+| ⬜ | BSFC map integration |
+| ⬜ | Spark timing & knock-limited torque |
+| ⬜ | Turbocharging model |
+| ⬜ | PID control layers (idle, boost) |
+| ⬜ | GUI & reporting dashboard |
 
 ---
 
 ## 🧪 Emissions Model (Experimental)
-Version 0.1.1 adds a **simplistic emissions model** using fuel flow and AFR.  
-Current capabilities include:
-- **CO₂ estimation** (from fuel mass flow using carbon ratio)
-- **HC and CO estimation** (empirical formulas based on AFR and airflow)
-- Empirical coefficients easily swappable with real test data
+Current v0.5 emissions estimation includes:
+- **CO₂ estimation** from fuel mass flow using carbon ratio
+- **HC, CO, NOx, THC estimation** via empirical formulas based on AFR and airflow
+- Coefficients easily swappable with real test data
 
-Planned improvements:
+**Planned improvements:**
 - BSFC map integration
 - Lambda-based emissions profile
-- NOₓ estimation (post-spark integration)
+- Advanced NOₓ modelling (post-spark integration)
 
 ---
 
 ## 🚦 Roadmap & Version Milestones
-
-| Version | Name                          | Key Deliverables |
-|--------|-------------------------------|------------------|
-| v0.1.0 | Baseline Pipeline Check       | CLI driver, torque & power calc, single run & RPM sweep, CSV export |
-| v0.1.1 | Emissions Estimator           | Fuel flow model, CO₂, HC, CO estimation |
-| v0.5.0 | VE Map Integration            | Load VE vs RPM map from CSV, improve fidelity & validate vs real data |
-| v1.0.0 | Spark Timing Calibration      | Spark-advance map, torque correction sweeps |
-| v1.1.0 | Calibration Enhancements      | Idle PID, VVT maps, EGR maps |
-| v1.5.0 | Combustion & Optimization     | Wiebe function, in-cylinder pressure, IMEP calc |
-| v2.0.0 | Comprehensive Model           | Multi-fuel support, emissions cycle simulation (WLTP, NEDC) |
-| v2.5.0 | Turbo & Knock-Limit Layer     | Boost pressure, knock-limited torque |
-| v3.0.0 | Advanced Calibration Suite    | Auto-tuning (DOE), transient tests, dashboard & reporting
+| Version | Name                               | Key Deliverables |
+|---------|------------------------------------|---------------------------------------------------------------------|
+| v0.1    | Baseline pipeline Check            | CLI driver, torque & power calc, single run & RPM sweep, CSV export |
+| v0.5    | Minimum Viable Product             | VE map integration, improved fidelity, basic emissions |
+| v1.0    | Empirical Combustion               | Empirical combustion model, fuel flow–based torque refinement |
+| v1.1    | Spark Timing                       | Spark-advance mapping, torque correction sweeps |
+| v1.2    | Reverse Engine Simulation          | Reverse-calculation mode (torque → airflow), validation tools |
+| v1.5    | Transient Testing                  | Step & ramp tests, transient torque response modelling |
+| v2.0    | Multifuel & Emissions              | Multi-fuel support, WLTP/NEDC cycle simulation, emissions expansion |
+| v2.1    | Automated Reporting                | Auto-plotting, trendlines, PDF/HTML report generation |
+| Backlog | —                                  | Turbo model, knock-limit layer, hybrid extensions |
 
 ---
 
 ## 📊 Planned Validation
-To demonstrate model growth and accuracy:
 - Compare model vs real SI engine dyno data:
   - Torque & power curves
   - VE maps
@@ -102,11 +106,11 @@ To demonstrate model growth and accuracy:
 ---
 
 ## 📎 Tools & Dependencies
-- Python 3.11+
-- `pandas` (used)
+- Python 3.11+
+- `pandas`
 - Future: `numpy`, `matplotlib`, `scipy`
 - JIRA for project task tracking
-- Project inspired by real-world ICE development & dyno testing methodology
+- Inspired by real-world ICE development & dyno testing methodology
 
 ---
 
@@ -121,4 +125,5 @@ To demonstrate model growth and accuracy:
 
 > **Status:**  
 > ✅ `v0.1.0` complete — baseline CLI + airflow + torque/power  
-> 🔜 `v0.5.0` next — VE map interpolation, validation, BSFC groundwork, emissions  
+> 🔄 `v0.5.0` in progress — VE map interpolation, validation vs real dyno data, BSFC groundwork, preliminary emissions model  
+> ⏭ `v1.0.0` next — empirical combustion modelling & torque refinement
