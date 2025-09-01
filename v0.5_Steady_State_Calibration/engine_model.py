@@ -50,7 +50,7 @@ def calculate_torque(rpm, mdotAir, displacement_l, LHV=44e6, eff=0.3):
     torque_pmep = pmep_pa * displacement_m3 / (4 * math.pi)
     torque_net = gross_torque - (torque_fmep + torque_pmep)
     emissions = estimate_Emissions(mdotFuel, cal.get_target_lambda(rpm), eff)
-    return max(torque_net, 0), emissions
+    return max(torque_net, 0), mdotFuel, emissions
 def calculate_power(rpm, torque):
     '''
     Convert torque (Nm) and engine speed (rpm) into power output (kW).
@@ -78,22 +78,21 @@ def calculate_horsePower(rpm, torque):
 def estimate_Emissions(mDotFuel, AFR, eff):
     """
     Rough estimate of emissions based on fuel mass flow and AFR.
-    fuel_mass_flow: kg/s
+    fuel_mass_flow: g/s
     afr: actual AFR
     combustion_eff: assumed combustion efficiency (0-1)
     Returns CO2, CO, NOx and HC in g/s
     """
     # Empirical Scaling Factors
-    k_co = 200
-    k_nox = 80
-    k_thc = 30
+    k_co = 0.2
+    k_nox = 0.08
+    k_thc = 0.03
     lambda_val = AFR / 14.7
-    mDotco2 = mDotFuel * 3.09 # CO2: 3.09 kg CO2 per kg fuel burned
+    mDotco2 = mDotFuel * 3.09 # CO2: 3.09 g CO2 per g fuel burned
     mDotco = mDotFuel * k_co * max(0, abs(1.2 - lambda_val)) # CO: Rises when rich (lambda < 1.2)
     mDotnox = mDotFuel * k_nox * max(0, 1 - abs(lambda_val - 1)) # NOx: peaks near stoichiometric, lower when far rich/lean
     mDotthc = mDotFuel * k_thc * (1 - eff) # THC mainly from incomplete combustion
-    emissions_kgps = [mDotco2, mDotco, mDotnox, mDotthc] # g/s
-    emissions_gps = [val * 1000 for val in emissions_kgps]
+    emissions_gps = [mDotco2, mDotco, mDotnox, mDotthc] # g/s
     return emissions_gps
 
 def estimate_emissions(mDotFuel, AFR, comb_eff, load_frac=0.6, ei_co2_g_per_kg=3090.0):
