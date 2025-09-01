@@ -73,7 +73,7 @@ while True:
             results = SingleRun(rpm, displacement, ve_mode, ve_table=ve_vs_rpm)
         else:
             results = SingleRun(rpm, displacement, ve_mode, constant_ve=ve)
-            df = pd.DataFrame(results, columns=['Engine Speed (RPM)', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower',  'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
+            df = pd.DataFrame(results, columns=['Engine Speed (RPM)', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower', 'Air Flow(g/s)', 'Fuel Flow(g/s)', 'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
             export_results_to_csv(df)
             sys.exit()
     elif testMode == '2':
@@ -102,7 +102,7 @@ while True:
             results = WideOpenThrottle(rpmMin, rpmMax, displacement, ve_mode, ve_table=ve_vs_rpm)
         else:
             results = WideOpenThrottle(rpmMin, rpmMax, displacement, ve_mode, constant_ve=ve)
-        df = pd.DataFrame(results, columns=['Engine Speed (RPM)', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower',  'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
+        df = pd.DataFrame(results, columns=['Engine Speed (RPM)', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower', 'Air Flow(g/s)', 'Fuel Flow(g/s)', 'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
         export_results_to_csv(df)
         rpm_vs_plots(df)
         emissionplot = input('Would you like to plot emissions(Yes/No):')
@@ -140,7 +140,7 @@ while True:
             results = FullRangeSweep(rpmMin, rpmMax, displacement, ve_mode, ve_table=ve_vs_rpm)
         else:
             results = FullRangeSweep(rpmMin, rpmMax, displacement, ve_mode, constant_ve=ve)
-        df = pd.DataFrame(results, columns=['Engine Speed (RPM)', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower',  'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
+        df = pd.DataFrame(results, columns=['Engine Speed (RPM)', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower', 'Air Flow(g/s)', 'Fuel Flow(g/s)', 'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
         export_results_to_csv(df)
         rpm_vs_plots(df)
         sys.exit()
