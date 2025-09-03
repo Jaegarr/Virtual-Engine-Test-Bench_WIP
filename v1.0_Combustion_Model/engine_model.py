@@ -1,7 +1,7 @@
 import math
 import Calibration as cal
 import numpy as np
-import SymPy as sp
+import matplotlib.pyplot as plt
 from scipy.interpolate import RegularGridInterpolator
 def calculate_air_mass_flow(rpm, displacement_l, ve, rho=1.22588):
     '''
@@ -168,13 +168,21 @@ def get_bsfc_from_table(torque, rpm, BSFC_table):
     bsfc = RegularGridInterpolator((torque_values, rpm_values), bsfc_values, bounds_error=False, fill_value=None)
     return bsfc
 '''
-def combustion_Wiebe(n_cylinder, bore, stroke, conrod, compressionRatio, LHV = 44E6, rho = 1.22588 ):
-     V_displacement = math.pi * (bore^2 / 4) * stroke
-     V_clearance = V_displacement * (compressionRatio-1)
-     crank_radius = stroke / 2
-     crossSec = math.pi * bore ^ 2 / 4
-     for theta in range(-180, 180, 0.1):
-        piston_pos = crank_radius * (1 - math.cos(theta)) + crank_radius^2 / (2 * conrod) * (1 - math.cos(2 * theta)
-        V_instant = V_clearance + crosSec * piston_pos                                                                                            
-     = 1 - np.exp(-a * ((theta-theta0)/deltatheta) ^ (m+1))
-    return wiebe
+def combustion_Wiebe(n_cylinder = 1, bore = 0.086, stroke = 0.086, conrod = 0.143, compressionRatio = 10, LHV = 44E6, rho = 1.22588 ):
+    V_displacement = math.pi * (bore**2 / 4) * stroke
+    V_clearance = V_displacement * (compressionRatio-1)
+    crank_radius = stroke / 2
+    crossSec = math.pi * bore**2 / 4
+    crank_angle = np.linspace(-math.pi, math.pi, 720)
+    V_instant = []
+    for theta in crank_angle:
+        piston_pos = crank_radius * (1 - math.cos(theta)) + crank_radius**2 / (2 * conrod) * (1 - math.cos(2 * theta))
+        V = V_clearance + crossSec * piston_pos
+        V_instant.append(V)
+    V_instant = np.array(V_instant)
+    # Numerical derivative dV/dθ
+    dV_dtheta = np.gradient(V_instant, crank_angle) 
+    plt.figure(V_instant)
+    plt.show()
+    return
+combustion_Wiebe()
