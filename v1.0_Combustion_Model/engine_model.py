@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -170,34 +171,33 @@ def get_bsfc_from_table(torque, rpm, BSFC_table):
     return bsfc
 '''
 def combustion_Wiebe(n_cylinder = 1, bore = 0.086, stroke = 0.086, conrod = 0.143, compressionRatio = 10, rpm = 2000, throttle = 1, LHV = 44E6, rho = 1.22588, gas_constant = 287, T_ivc = 330 ):
-    V_instant = []
-    P_instant = []
-    T_instant = []
-    #GEOMETRY
+    # GEOMETRY
     V_displacement = np.pi * (bore**2 / 4) * stroke
-    V_clearance = V_displacement / (compressionRatio-1)
+    V_clearance = V_displacement / (compressionRatio - 1)
     crank_radius = stroke / 2
     crossSec = np.pi * bore**2 / 4
     # POSITION
     crank_angle = np.linspace(-np.pi, np.pi, 1441)
-    piston_pos = crank_radius * (1 - np.cos(theta)) + crank_radius**2 / (2 * conrod) * (1 - np.cos(2 * theta))
+    piston_pos = crank_radius * (1 - np.cos(crank_angle)) + crank_radius**2 / (2 * conrod) * (1 - np.cos(2 * crank_angle))
     V = V_clearance + crossSec * piston_pos
-    dV_dtheta = np.gradient(V_instant, crank_angle) # Numerical derivative dV/dθ
+    dV_dtheta = np.gradient(V, crank_angle) # Numerical derivative dV/dθ
     # TIMING
     ivc_rad = np.deg2rad(-110.0) # Approximate
     soc_rad = np.deg2rad(-10.0) # Approximate
-    i_ivc = int(np.argmin(np.abs(theta - ivc_rad)))
-    i_soc = int(np.argmin(np.abs(theta - soc_rad)))
-    #
-    for t in throttle:
-            p_ivc = 20 + t * (100 - 20)
-    trapped_m = p_ivc * V_ivc / (gas_constant * T_ivc)
-    # Compression Stroke
-    for theta in range(theta_ivc, startComb, 0.2):
-        P = p_ivc * (V_ivc / V_instant[theta]) ** 1.35
-        T = P * V_instant[theta] / (trapped_m * gas_constant)
-        P_instant.append(P)
-        T_instant.append(T)
-    df = pd.
+    i_ivc = int(np.argmin(np.abs(crank_angle - ivc_rad)))
+    i_soc = int(np.argmin(np.abs(crank_angle - soc_rad)))
+    # TRAPPED MASS
+    p_ivc = (20 + throttle * (100 - 20)) * 1e3
+    m_trapped = p_ivc * V[i_ivc] / (gas_constant * T_ivc)
+    # COMPRESSION STROKE
+    V_compression = V[i_ivc:i_soc+1]
+    P_compression = (p_ivc * (V[i_ivc]/ V_compression) ** 1.34)/1e5 # Polytropic compression
+    T_compression = (P_compression * V_compression / (m_trapped * gas_constant)) * 1e5
+    df = pd.DataFrame({
+        'Crank Angle': np.degrees(crank_angle),
+        'Volume (m3)': V,
+        'dVdtheta_m3_per_rad': dV_dtheta,
+        'Pressure (bar)': np.nan,
+        'Temperature (K)':  np.nan,
+    })
     return
-combustion_Wiebe()
