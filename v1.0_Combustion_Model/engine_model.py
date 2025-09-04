@@ -1,8 +1,9 @@
-import math
-import Calibration as cal
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
+import Calibration as cal
 from scipy.interpolate import RegularGridInterpolator
+
 def calculate_air_mass_flow(rpm, displacement_l, ve, rho=1.22588):
     '''
     Estimate the air mass flow rate (kg/s) into a naturally aspirated 4‑stroke engine.
@@ -42,14 +43,14 @@ def calculate_torque(rpm, mdotAir, displacement_l, LHV=44e6, eff=0.3):
         - Subtracts simplified frictional (FMEP) and pumping (PMEP) losses based on empirical formulas.
     '''
     mdotFuel = mdotAir / cal.get_target_lambda(rpm)
-    gross_torque = mdotFuel * LHV * eff / (rpm * 2 * math.pi / 60)
+    gross_torque = mdotFuel * LHV * eff / (rpm * 2 * np.pi / 60)
     fmep = 0.25 + 0.02 * rpm / 1000 + 0.03 * (rpm / 1000) ** 2  # bar
     fmep_pa = fmep * 1e5
     displacement_m3 = displacement_l / 1e3
-    torque_fmep = fmep_pa * displacement_m3 / (4 * math.pi)
+    torque_fmep = fmep_pa * displacement_m3 / (4 * np.pi)
     pmep = 0.02 + 0.00001 * rpm  # bar
     pmep_pa = pmep * 1e5
-    torque_pmep = pmep_pa * displacement_m3 / (4 * math.pi)
+    torque_pmep = pmep_pa * displacement_m3 / (4 * np.pi)
     torque_net = gross_torque - (torque_fmep + torque_pmep)
     emissions = estimate_Emissions(mdotFuel, cal.get_target_lambda(rpm), eff)
     return max(torque_net, 0), mdotFuel, emissions
@@ -64,7 +65,7 @@ def calculate_power(rpm, torque):
     Returns:
         float: Power in kilowatts (kW).
     '''
-    return (torque * rpm * 2 * math.pi / 60) / 1000
+    return (torque * rpm * 2 * np.pi / 60) / 1000
 def calculate_horsePower(rpm, torque):
     '''
     Convert torque (Nm) and engine speed (rpm) into power output in horsepower.
@@ -76,7 +77,7 @@ def calculate_horsePower(rpm, torque):
     Returns:
         float: Power in mechanical horsepower (hp).
     '''
-    return (torque * rpm * 2 * math.pi / 60) / 745.7
+    return (torque * rpm * 2 * np.pi / 60) / 745.7
 def estimate_Emissions(mDotFuel, AFR, eff):
     """
     Rough estimate of emissions based on fuel mass flow and AFR.
@@ -146,7 +147,7 @@ def estimate_emissions(mDotFuel, AFR, comb_eff, load_frac=0.6, ei_co2_g_per_kg=3
     lam_peak = 1.05
     sigma = 0.09
     peak_noX = 18.0 * (load_frac**0.7)  # higher load → more NOx
-    EI_NOx = peak_noX * math.exp(-0.5*((lam - lam_peak)/sigma)**2)
+    EI_NOx = peak_noX * np.exp(-0.5*((lam - lam_peak)/sigma)**2)
     # Mild lean/rich suppression already handled by Gaussian
 
     # --- CO2 (g/kg fuel) ---
@@ -168,21 +169,35 @@ def get_bsfc_from_table(torque, rpm, BSFC_table):
     bsfc = RegularGridInterpolator((torque_values, rpm_values), bsfc_values, bounds_error=False, fill_value=None)
     return bsfc
 '''
-def combustion_Wiebe(n_cylinder = 1, bore = 0.086, stroke = 0.086, conrod = 0.143, compressionRatio = 10, LHV = 44E6, rho = 1.22588 ):
-    V_displacement = math.pi * (bore**2 / 4) * stroke
-    V_clearance = V_displacement * (compressionRatio-1)
-    crank_radius = stroke / 2
-    crossSec = math.pi * bore**2 / 4
-    crank_angle = np.linspace(-math.pi, math.pi, 720)
+def combustion_Wiebe(n_cylinder = 1, bore = 0.086, stroke = 0.086, conrod = 0.143, compressionRatio = 10, rpm = 2000, throttle = 1, LHV = 44E6, rho = 1.22588, gas_constant = 287, T_ivc = 330 ):
     V_instant = []
-    for theta in crank_angle:
-        piston_pos = crank_radius * (1 - math.cos(theta)) + crank_radius**2 / (2 * conrod) * (1 - math.cos(2 * theta))
-        V = V_clearance + crossSec * piston_pos
-        V_instant.append(V)
-    V_instant = np.array(V_instant)
-    # Numerical derivative dV/dθ
-    dV_dtheta = np.gradient(V_instant, crank_angle) 
-    plt.figure(V_instant)
-    plt.show()
+    P_instant = []
+    T_instant = []
+    #GEOMETRY
+    V_displacement = np.pi * (bore**2 / 4) * stroke
+    V_clearance = V_displacement / (compressionRatio-1)
+    crank_radius = stroke / 2
+    crossSec = np.pi * bore**2 / 4
+    # POSITION
+    crank_angle = np.linspace(-np.pi, np.pi, 1441)
+    piston_pos = crank_radius * (1 - np.cos(theta)) + crank_radius**2 / (2 * conrod) * (1 - np.cos(2 * theta))
+    V = V_clearance + crossSec * piston_pos
+    dV_dtheta = np.gradient(V_instant, crank_angle) # Numerical derivative dV/dθ
+    # TIMING
+    ivc_rad = np.deg2rad(-110.0) # Approximate
+    soc_rad = np.deg2rad(-10.0) # Approximate
+    i_ivc = int(np.argmin(np.abs(theta - ivc_rad)))
+    i_soc = int(np.argmin(np.abs(theta - soc_rad)))
+    #
+    for t in throttle:
+            p_ivc = 20 + t * (100 - 20)
+    trapped_m = p_ivc * V_ivc / (gas_constant * T_ivc)
+    # Compression Stroke
+    for theta in range(theta_ivc, startComb, 0.2):
+        P = p_ivc * (V_ivc / V_instant[theta]) ** 1.35
+        T = P * V_instant[theta] / (trapped_m * gas_constant)
+        P_instant.append(P)
+        T_instant.append(T)
+    df = pd.
     return
 combustion_Wiebe()
