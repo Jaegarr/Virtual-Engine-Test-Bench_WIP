@@ -1,34 +1,31 @@
-# 🧪 Virtual Engine Test Bench
-**Version: v0.5.0 — Minimum Viable Product (in progress)**
+# 🧪 Virtual Engine Test Bench (VETB)
+
+**Version:** v0.5.0 — Minimum Viable Product (✅ complete)  
+**Next:** v1.0.0 — Empirical Combustion (🚧 in progress)
 
 Python-based simulation tool for internal combustion engine (ICE) development.  
 It emulates a real engine test bench workflow — as if the virtual engine were mounted on a dyno.
 
-The project begins with a simplified torque & power model and evolves in fidelity with each version — reflecting how a calibration engineer incrementally builds model complexity.
-
 ---
 
 ## 🎯 Project Philosophy
-- **Start simple**: steady-state torque & power from displacement and VE
-- **Build iteratively**: layer in VE maps, fuel flow, spark timing, knock, turbo, emissions
-- **Mimic test bench workflows**: single point runs, RPM sweeps, fault injection
-- **Track fidelity improvements**: validate against real-world dyno data over time
-- **Prioritize clean design**: CLI-first, modular code, later dashboards & automation
+- Start simple: steady-state torque & power from displacement and VE  
+- Build iteratively: VE maps, fuel flow, spark timing, turbo, emissions  
+- Mimic test bench workflows: single RPM runs, WOT, RPM sweeps, fault injection  
+- Track fidelity improvements: validate against real dyno data over time  
+- Prioritize clean design: CLI-first, modular code, later dashboards & automation  
 
 ---
 
-## ✅ Current Features (v0.5.0 — Minimum Viable Product)
-- **CLI interface** to run single-point or RPM sweep simulations
-- **Airflow, torque, power & horsepower** calculated from displacement, RPM, and **VE map interpolation**
-- **DataFrame output** with values rounded to 3 decimals, ready for reporting
-- **Automatic CSV export** to `/Results`, timestamped & user-named
-- **Full-throttle RPM sweep** mode for curve generation  
-- **Modular architecture**: simulation (`Test_Modes.py`), reporting (`Reporting.py`), and config separated
-- **VE map loader** — user can upload custom VE vs RPM/Load maps or use the built-in default (Nissan 350Z dataset)
-- **Simplistic emissions model** estimating CO₂, CO, NOx, THC from fuel flow & AFR (empirical coefficients, user-swappable)
-- **FMEP model** applied to improve torque realism
-- **Input validation** for VE, RPM, displacement, units
-- **Configurable test types** — detect WOT tests automatically or prompt for throttle-position filtering
+## ✅ Current Features (v0.5.0)
+- CLI interface with single-point & RPM sweep simulations  
+- Airflow, torque, power & horsepower from displacement, RPM, VE map interpolation  
+- Automatic CSV export to `/Results` (timestamped & user-named)  
+- VE map loader (custom map or default Nissan VQ35DE dataset)  
+- Empirical emissions model: CO₂, CO, NOx, THC from AFR & fuel flow  
+- FMEP/PMEP models for internal losses  
+- WOT & full-sweep plotting (torque, power, emissions curves)  
+- Input validation & boundary checks  
 
 ---
 
@@ -41,89 +38,70 @@ The project begins with a simplified torque & power model and evolves in fidelit
 | ✅ | CSV export module |
 | ✅ | VE map loader & interpolation |
 | ✅ | Preliminary emissions model |
-| ✅ | FMEP friction model |
-| ⬜ | BSFC map integration |
-| ⬜ | Spark timing & knock-limited torque |
+| ✅ | FMEP/PMEP loss models |
+| ⬜ | Combustion Model - Wiebe (Single Zone) |
+| ⬜ | Spark timing & calibration |
 | ⬜ | Turbocharging model |
 | ⬜ | PID control layers (idle, boost) |
+| ⬜ | Multifuel Database |
+| ⬜ | Automated Test Cycles (WLTP, NEDC)|
 | ⬜ | GUI & reporting dashboard |
+| ⬜ | Reverse Engine Simulation for performance analysis |
 
 ---
 
-## 🧪 Emissions Model (Experimental)
-Current v0.5 emissions estimation includes:
-- **CO₂ estimation** from fuel mass flow using carbon ratio
-- **HC, CO, NOx, THC estimation** via empirical formulas based on AFR and airflow
-- Coefficients easily swappable with real test data
-
-**Planned improvements:**
-- BSFC map integration
-- Lambda-based emissions profile
-- Advanced NOₓ modelling (post-spark integration)
-
----
-
-## 🚦 Roadmap & Version Milestones
-| Version | Name                               | Key Deliverables |
-|---------|------------------------------------|---------------------------------------------------------------------|
-| v0.1    | Baseline pipeline Check            | CLI driver, torque & power calc, single run & RPM sweep, CSV export |
-| v0.5    | Minimum Viable Product             | VE map integration, improved fidelity, basic emissions |
-| v1.0    | Empirical Combustion               | Empirical combustion model, fuel flow–based torque refinement |
-| v1.1    | Spark Timing                       | Spark-advance mapping, torque correction sweeps |
-| v1.2    | Reverse Engine Simulation          | Reverse-calculation mode (torque → airflow), validation tools |
-| v1.5    | Transient Testing                  | Step & ramp tests, transient torque response modelling |
-| v2.0    | Multifuel & Emissions              | Multi-fuel support, WLTP/NEDC cycle simulation, emissions expansion |
-| v2.1    | Automated Reporting                | Auto-plotting, trendlines, PDF/HTML report generation |
-| Backlog | —                                  | Turbo model, knock-limit layer, hybrid extensions |
+## 🚦 Roadmap & Milestones
+| Version | Name | Key Deliverables |
+|---------|------|------------------|
+| v0.1 | Baseline Pipeline | CLI driver, torque & power calc, CSV export |
+| v0.5 | Minimum Viable Product | VE map, FMEP/PMEP, basic emissions, plotting |
+| v1.0 | Empirical Combustion | Wiebe-function combustion, torque refinement |
+| v1.1 | Spark Timing | Spark-advance mapping, torque correction sweeps |
+| v1.5 | Transient Testing | Step & ramp tests, idle-speed PID, inertial dynamics |
+| v2.0 | Multi-fuel & Emissions | Fuel database, aftertreatment, WLTP/NEDC cycles |
+| v2.1 | Automated Reporting | Dash/UI dashboards, PDF/HTML report generation |
+| v2.5 | Reverse Engine Simulation | OBD-data ingestion, back-calibration validation |
 
 ---
 
-## 📊 Planned Validation
-- Compare model vs real SI engine dyno data:
-  - Torque & power curves
-  - VE maps
-  - Spark & knock-limited torque
-  - Emissions vs logged cycle data (if available)
-- Visualize improvements version by version
+## 📊 Validation
+- Default VE map: Nissan VQ35DE (3.5L NA, Nissan 350Z)  
+- Model validated vs dyno torque & power curves  
+- Agreement in mid-range, overprediction at low/high RPM due to constant efficiency & friction model limits  
+- Continuous improvements planned (combustion, spark, transient dynamics)  
 
 ---
 
 ## 💾 Data & Reporting
-- Exports `.csv` files via the `Reporting` module
-- Timestamped filenames to avoid overwrite
-- Default save path: `/Results` (auto-created)
-- Future: auto-generated plots, trendlines, and full PDF/HTML reports
+- Results saved as `.csv` in `/Results`  
+- Timestamped filenames avoid overwriting  
+- Plotting available for torque, power & emissions  
+- Future: auto-generated reports (PDF/HTML)  
 
 ---
 
 ## 🧠 Learning Goals
-- Learn Python through a project that mirrors real-world powertrain workflows
-- Build calibration-engineer thinking (VE, AFR, spark, knock, BSFC)
-- Practice modular, CLI-first design patterns
-- Understand emissions formation & estimation strategies
-- Move toward reproducible, shareable engine simulation tools
+- Learn Python through ICE calibration workflows  
+- Develop calibration-engineer mindset (VE, AFR, spark, knock, BSFC)  
+- Practice modular CLI-first design patterns  
+- Understand emissions formation & estimation strategies  
+- Move toward reproducible, shareable simulation tools  
 
 ---
 
 ## 📎 Tools & Dependencies
-- Python 3.11+
-- `pandas`
-- Future: `numpy`, `matplotlib`, `scipy`
-- JIRA for project task tracking
-- Inspired by real-world ICE development & dyno testing methodology
+- Python 3.13+  
+- numpy, pandas, scipy,  matplotlib  
+- JIRA for task tracking  
 
 ---
 
-## 💡 Future Extensions
-- Hybrid & electrified powertrains
-- Exhaust aftertreatment & thermal modeling
-- Knock prediction & octane sensitivity
-- Auto-tuned calibration (DoE-style)
-- Live dashboards with data visualizations
+## 📺 Demo
+[WOT Test Demo](https://drive.google.com/file/d/1-dpdAOZIZWzUSkz9k_nm_YxfedbN-AH8/view?usp=sharing)
 
 ---
 
-> **Status:**  
-> ✅ `v0.1.0` complete — baseline CLI + airflow + torque/power  
-> 🔄 `v0.5.0` in progress — VE map interpolation, validation vs real dyno data, BSFC groundwork, preliminary emissions model  
-> ⏭ `v1.0.0` next — empirical combustion modelling & torque refinement
+### Status
+- ✅ v0.1.0 complete — baseline pipeline  
+- ✅ v0.5.0 complete — MVP with VE maps, emissions, plotting  
+- 🚧 v1.0.0 in progress — combustion model (Wiebe function)  
