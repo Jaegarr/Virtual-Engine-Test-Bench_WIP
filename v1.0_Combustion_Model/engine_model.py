@@ -170,7 +170,10 @@ def get_bsfc_from_table(torque, rpm, BSFC_table):
     bsfc = RegularGridInterpolator((torque_values, rpm_values), bsfc_values, bounds_error=False, fill_value=None)
     return bsfc
 '''
-def combustion_Wiebe(n_cylinder = 1, bore = 0.086, stroke = 0.086, conrod = 0.143, compressionRatio = 10, rpm = 2000, throttle = 1, LHV = 44E6, rho = 1.22588, gas_constant = 287, T_ivc = 330, a = 5, m = 2 ):
+def combustion_Wiebe(displacement_l, n_cylinder, bore, stroke, 
+                     conrod, compressionRatio, rpm, throttle, ve, 
+                     LHV = 44E6, rho = 1.22588, gas_constant = 287, T_ivc = 330, 
+                     a = 5, m = 2, combustion_efficiency = 0.98, c_v = 1.14):
     # GEOMETRY
     V_displacement = np.pi * (bore**2 / 4) * stroke
     V_clearance = V_displacement / (compressionRatio - 1)
@@ -184,33 +187,56 @@ def combustion_Wiebe(n_cylinder = 1, bore = 0.086, stroke = 0.086, conrod = 0.14
     # TIMING
     ivc_rad = np.deg2rad(-110.0) # Approximate
     soc_rad = np.deg2rad(-10.0) # Approximate
+    eoc_rad = np.deg2rad(25.0) # Approximate
     i_ivc = int(np.argmin(np.abs(crank_angle - ivc_rad)))
     i_soc = int(np.argmin(np.abs(crank_angle - soc_rad)))
+    i_eoc = int(np.argmin(np.abs(crank_angle - eoc_rad)))
     # TRAPPED MASS
     p_ivc = (20 + throttle * (100 - 20)) * 1e3
     m_trapped = p_ivc * V[i_ivc] / (gas_constant * T_ivc)
     # COMPRESSION STROKE
     V_compression = V[i_ivc:i_soc+1]
-    P_compression = (p_ivc * (V[i_ivc]/ V_compression) ** 1.34)/1e5 # Polytropic compression
-    T_compression = (P_compression * V_compression / (m_trapped * gas_constant)) * 1e5
+    P_compression = (p_ivc * (V[i_ivc]/ V_compression) ** 1.34) # Polytropic compression
+    T_compression = (P_compression * V_compression / (m_trapped * gas_constant))
+    # COMBUSTION
+    delta = eoc_rad - soc_rad
+    P_current = P_compression [-1]
+    T_current = T_compression [-1]
+    P_combustion = []
+    T_combustion = []
+    mfb_list = []
+
+    mdotair = (calculate_air_mass_flow(rpm, displacement_l, ve) / n_cylinder) / (rpm / 120.0)
+    mdotfuel = mdotair / cal.get_target_AFR(rpm)
+    Q_tot = mdotfuel * combustion_efficiency * LHV
+    dtheta = crank_angle[1] - crank_angle[0]
+    
+    for i in range(i_soc, i_eoc+1):
+        theta = crank_angle[i]
+        x = (theta - soc_rad) / delta
+        x = np.clip(x, 0.0, 1.0)
+        mfb = 1.0 - np.exp(-a * x**(m+1))
+        dmfb_dtheta = a * (m+1) * x**m * np.exp(-a * x**(m+1)) / delta
+        dQ = Q_tot * dmfb_dtheta
+        dQ_step = dQ * dtheta
+        dT_combustion = dQ_step / (m_trapped * c_v)
+        V_current = V[i +1]
+        T_current = T_current + dT_combustion
+        P_current = (m_trapped * gas_constant * T_current) / V_current
+        T_combustion.append(T_current)
+        P_combustion.append(P_current)
+        mfb_list.append(mfb)
     df = pd.DataFrame({
-        'Crank Angle': np.degrees(crank_angle),
+        'Crank Angle (deg)': np.degrees(crank_angle),
         'Volume (m3)': V,
-        'dVdtheta_m3_per_rad': dV_dtheta,
+        'dVdtheta (m3/rad)': dV_dtheta,
         'Pressure (bar)': np.nan,
         'Temperature (K)':  np.nan,
+        'Mass Fraction Burned': np.nan
     })
-    df.loc[i_ivc:i_soc, 'p_Pa'] = P_compression
-    df.loc[i_ivc:i_soc, 'T_K']  = T_compression
-    # COMBUSTION
-    rps = rpm / 120
-    mdotair = (calculate_air_mass_flow(rpm, displacement_l, ve) / n_cylinder) / rps
-    mdotfuel = mdotair / (cal.get_target_AFR(rpm)
-    eoc_rad = np.deg2rad(25.0)
-    i_eoc = int(np.argmin(np.abs(crank_angle - eoc_rad)))
-    for theta in range(soc_rad, eoc_rad, 0.2):
-        x = (theta - soc_rad) / (eoc_rad - soc_rad)
-        mfb = 1 - np.exp(-a * x**(m+1))
-        dxbdtheta = a * (m+1) * x**m * np.exp(-a * x**(m+1)) / dtheta
-        dQ = Q_tot * dxbdtheta
+    df.loc[i_ivc:i_soc, 'Pressure (bar)'] = P_compression / 1e5
+    df.loc[i_soc:i_eoc + 1, 'Pressure (bar)'] = P_combustion / 1e5
+    df.loc[i_ivc:i_soc, 'Temperature (K)']  = T_compression
+    df.loc[i_soc:i_eoc + 1, 'Temperature (K)'] = T_combustion
+    df.loc[i_soc:i_eoc + 1, 'Mass Fraction Burned'] = mfb_list
     return
