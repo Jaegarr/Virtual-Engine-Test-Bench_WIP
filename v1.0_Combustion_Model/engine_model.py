@@ -170,8 +170,8 @@ def get_bsfc_from_table(torque, rpm, BSFC_table):
     bsfc = RegularGridInterpolator((torque_values, rpm_values), bsfc_values, bounds_error=False, fill_value=None)
     return bsfc
 '''
-def combustion_Wiebe(displacement_l, n_cylinder, bore, stroke, 
-                     conrod, compressionRatio, rpm, throttle, ve, 
+def combustion_Wiebe(displacement_l =3.50, n_cylinder = 4, bore = 0.086, stroke = 0.086, 
+                     conrod = 0.143, compressionRatio = 10, rpm = 300, throttle = 1.0, ve = 0.9, 
                      LHV = 44E6, rho = 1.22588, gas_constant = 287, T_ivc = 330, 
                      a = 5, m = 2, combustion_efficiency = 0.98, c_v = 1.14):
     # GEOMETRY
@@ -235,8 +235,8 @@ def combustion_Wiebe(displacement_l, n_cylinder, bore, stroke,
         'Mass Fraction Burned': np.nan
     })
     df.loc[i_ivc:i_soc, 'Pressure (bar)'] = P_compression / 1e5
-    df.loc[i_soc:i_eoc + 1, 'Pressure (bar)'] = P_combustion / 1e5
+    df.loc[i_soc:i_eoc + 1, 'Pressure (bar)'] = np.array(P_combustion / 1e5)
     df.loc[i_ivc:i_soc, 'Temperature (K)']  = T_compression
-    df.loc[i_soc:i_eoc + 1, 'Temperature (K)'] = T_combustion
-    df.loc[i_soc:i_eoc + 1, 'Mass Fraction Burned'] = mfb_list
+    df.loc[i_soc:i_eoc + 1, 'Temperature (K)'] =np.array(T_combustion)
+    df.loc[i_soc:i_eoc + 1, 'Mass Fraction Burned'] = np.array(mfb_list)
     return
