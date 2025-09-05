@@ -43,7 +43,7 @@ def calculate_torque(rpm, mdotAir, displacement_l, LHV=44e6, eff=0.3):
         - Uses target lambda from calibration map to estimate fuel mass flow.
         - Subtracts simplified frictional (FMEP) and pumping (PMEP) losses based on empirical formulas.
     '''
-    mdotFuel = mdotAir / cal.get_target_lambda(rpm)
+    mdotFuel = mdotAir / cal.get_target_AFR(rpm)
     gross_torque = mdotFuel * LHV * eff / (rpm * 2 * np.pi / 60)
     fmep = 0.25 + 0.02 * rpm / 1000 + 0.03 * (rpm / 1000) ** 2  # bar
     fmep_pa = fmep * 1e5
@@ -53,7 +53,7 @@ def calculate_torque(rpm, mdotAir, displacement_l, LHV=44e6, eff=0.3):
     pmep_pa = pmep * 1e5
     torque_pmep = pmep_pa * displacement_m3 / (4 * np.pi)
     torque_net = gross_torque - (torque_fmep + torque_pmep)
-    emissions = estimate_Emissions(mdotFuel, cal.get_target_lambda(rpm), eff)
+    emissions = estimate_Emissions(mdotFuel, cal.get_target_AFR(rpm), eff)
     return max(torque_net, 0), mdotFuel, emissions
 def calculate_power(rpm, torque):
     '''
@@ -170,7 +170,7 @@ def get_bsfc_from_table(torque, rpm, BSFC_table):
     bsfc = RegularGridInterpolator((torque_values, rpm_values), bsfc_values, bounds_error=False, fill_value=None)
     return bsfc
 '''
-def combustion_Wiebe(n_cylinder = 1, bore = 0.086, stroke = 0.086, conrod = 0.143, compressionRatio = 10, rpm = 2000, throttle = 1, LHV = 44E6, rho = 1.22588, gas_constant = 287, T_ivc = 330 ):
+def combustion_Wiebe(n_cylinder = 1, bore = 0.086, stroke = 0.086, conrod = 0.143, compressionRatio = 10, rpm = 2000, throttle = 1, LHV = 44E6, rho = 1.22588, gas_constant = 287, T_ivc = 330, a = 5, m = 2 ):
     # GEOMETRY
     V_displacement = np.pi * (bore**2 / 4) * stroke
     V_clearance = V_displacement / (compressionRatio - 1)
@@ -200,4 +200,17 @@ def combustion_Wiebe(n_cylinder = 1, bore = 0.086, stroke = 0.086, conrod = 0.14
         'Pressure (bar)': np.nan,
         'Temperature (K)':  np.nan,
     })
+    df.loc[i_ivc:i_soc, 'p_Pa'] = P_compression
+    df.loc[i_ivc:i_soc, 'T_K']  = T_compression
+    # COMBUSTION
+    rps = rpm / 120
+    mdotair = (calculate_air_mass_flow(rpm, displacement_l, ve) / n_cylinder) / rps
+    mdotfuel = mdotair / (cal.get_target_AFR(rpm)
+    eoc_rad = np.deg2rad(25.0)
+    i_eoc = int(np.argmin(np.abs(crank_angle - eoc_rad)))
+    for theta in range(soc_rad, eoc_rad, 0.2):
+        x = (theta - soc_rad) / (eoc_rad - soc_rad)
+        mfb = 1 - np.exp(-a * x**(m+1))
+        dxbdtheta = a * (m+1) * x**m * np.exp(-a * x**(m+1)) / dtheta
+        dQ = Q_tot * dxbdtheta
     return
