@@ -170,10 +170,10 @@ def get_bsfc_from_table(torque, rpm, BSFC_table):
     bsfc = RegularGridInterpolator((torque_values, rpm_values), bsfc_values, bounds_error=False, fill_value=None)
     return bsfc
 '''
-def combustion_Wiebe(displacement_l =3.50, n_cylinder = 4, bore = 0.086, stroke = 0.086, 
+def combustion_Wiebe(n_cylinder = 4, bore = 0.086, stroke = 0.086, 
                      conrod = 0.143, compressionRatio = 10, rpm = 300, throttle = 1.0, ve = 0.9, 
                      LHV = 44E6, rho = 1.22588, gas_constant = 287, T_ivc = 330, 
-                     a = 5, m = 2, combustion_efficiency = 0.98, c_v = 1.14):
+                     a = 5, m = 2, combustion_efficiency = 0.98, n_poly = 1.34,cv_J = 750):
     # GEOMETRY
     V_displacement = np.pi * (bore**2 / 4) * stroke
     V_clearance = V_displacement / (compressionRatio - 1)
@@ -192,37 +192,34 @@ def combustion_Wiebe(displacement_l =3.50, n_cylinder = 4, bore = 0.086, stroke 
     i_soc = int(np.argmin(np.abs(crank_angle - soc_rad)))
     i_eoc = int(np.argmin(np.abs(crank_angle - eoc_rad)))
     # TRAPPED MASS
-    p_ivc = (20 + throttle * (100 - 20)) * 1e3
-    m_trapped = p_ivc * V[i_ivc] / (gas_constant * T_ivc)
+    p_ivc = (20 + throttle * (100 - 20)) * 1e3 # Pa
+    mAirpercycle = p_ivc * V[i_ivc] / (gas_constant * T_ivc)
+    mFuelpercycle =mAirpercycle / cal.get_target_AFR(rpm)
+    m_trapped = mAirpercycle + mFuelpercycle
     # COMPRESSION STROKE
     V_compression = V[i_ivc:i_soc+1]
-    P_compression = (p_ivc * (V[i_ivc]/ V_compression) ** 1.34) # Polytropic compression
+    P_compression = (p_ivc * (V[i_ivc]/ V_compression) ** n_poly) # Polytropic compression
     T_compression = (P_compression * V_compression / (m_trapped * gas_constant))
+    # TOTAL ENERGY RELEASE
+    Q_tot = mFuelpercycle * combustion_efficiency * LHV
     # COMBUSTION
+    dtheta = crank_angle[1] - crank_angle[0]
     delta = eoc_rad - soc_rad
     P_current = P_compression [-1]
     T_current = T_compression [-1]
-    P_combustion = []
-    T_combustion = []
-    mfb_list = []
-
-    mdotair = (calculate_air_mass_flow(rpm, displacement_l, ve) / n_cylinder) / (rpm / 120.0)
-    mdotfuel = mdotair / cal.get_target_AFR(rpm)
-    Q_tot = mdotfuel * combustion_efficiency * LHV
-    dtheta = crank_angle[1] - crank_angle[0]
-    
+    P_combustion, T_combustion, mfb_list = [], [], []
     for i in range(i_soc, i_eoc+1):
         theta = crank_angle[i]
         x = (theta - soc_rad) / delta
         x = np.clip(x, 0.0, 1.0)
         mfb = 1.0 - np.exp(-a * x**(m+1))
         dmfb_dtheta = a * (m+1) * x**m * np.exp(-a * x**(m+1)) / delta
-        dQ = Q_tot * dmfb_dtheta
-        dQ_step = dQ * dtheta
-        dT_combustion = dQ_step / (m_trapped * c_v)
-        V_current = V[i +1]
-        T_current = T_current + dT_combustion
-        P_current = (m_trapped * gas_constant * T_current) / V_current
+        dQ_chem = Q_tot * dmfb_dtheta * dtheta
+        dU = dQ_chem - P_current * (V[i+1 ]- V[i]) # dU = dQ- dW
+        dT_combustion = dU / (m_trapped * cv_J)
+        V_current = V[i+1]
+        T_current +=  dT_combustion
+        P_current = m_trapped * gas_constant * T_current / V_current
         T_combustion.append(T_current)
         P_combustion.append(P_current)
         mfb_list.append(mfb)
@@ -235,8 +232,28 @@ def combustion_Wiebe(displacement_l =3.50, n_cylinder = 4, bore = 0.086, stroke 
         'Mass Fraction Burned': np.nan
     })
     df.loc[i_ivc:i_soc, 'Pressure (bar)'] = P_compression / 1e5
-    df.loc[i_soc:i_eoc + 1, 'Pressure (bar)'] = np.array(P_combustion / 1e5)
+    df.loc[i_soc:i_eoc, 'Pressure (bar)'] = np.array(P_combustion) /1e5
     df.loc[i_ivc:i_soc, 'Temperature (K)']  = T_compression
-    df.loc[i_soc:i_eoc + 1, 'Temperature (K)'] =np.array(T_combustion)
-    df.loc[i_soc:i_eoc + 1, 'Mass Fraction Burned'] = np.array(mfb_list)
+    df.loc[i_soc:i_eoc, 'Temperature (K)'] =np.array(T_combustion)
+    df.loc[i_soc:i_eoc, 'Mass Fraction Burned'] = np.array(mfb_list)
+    plt.figure(figsize=(10,6))
+    # Pressure
+    plt.subplot(3,1,1)
+    plt.plot(df['Crank Angle (deg)'], df['Pressure (bar)'])
+    plt.ylabel('Pressure [bar]')
+    plt.grid(True)
+    # Temperature
+    plt.subplot(3,1,2)
+    plt.plot(df['Crank Angle (deg)'], df['Temperature (K)'])
+    plt.ylabel('Temperature [K]')
+    plt.grid(True)
+    # MFB
+    plt.subplot(3,1,3)
+    plt.plot(df['Crank Angle (deg)'], df['Mass Fraction Burned'])
+    plt.xlabel('Crank Angle [deg]')
+    plt.ylabel('MFB [-]')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
     return
+combustion_Wiebe()
