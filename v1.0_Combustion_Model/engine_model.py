@@ -161,19 +161,10 @@ def estimate_emissions(mDotFuel, AFR, comb_eff, load_frac=0.6, ei_co2_g_per_kg=3
     gps_HC  = EI_HC  * mDotFuel
 
     return {'CO2': gps_CO2, 'CO': gps_CO, 'NOx': gps_NOx, 'HC': gps_HC}
-'''
-def get_bsfc_from_table(torque, rpm, BSFC_table):
-    bsfc_results = []
-    torque_values = BSFC_table.index.to_numpy(dtype=float)
-    rpm_values = BSFC_table.columns.to_numpy(dtype=float)
-    bsfc_values = BSFC_table.to_numpy()
-    bsfc = RegularGridInterpolator((torque_values, rpm_values), bsfc_values, bounds_error=False, fill_value=None)
-    return bsfc
-'''
-def combustion_Wiebe(n_cylinder = 4, bore = 0.086, stroke = 0.086, 
-                     conrod = 0.143, compressionRatio = 10, rpm = 300, throttle = 1.0, ve = 0.9, 
-                     LHV = 44E6, rho = 1.22588, gas_constant = 287, T_ivc = 330, 
-                     a = 5, m = 2, combustion_efficiency = 0.98, n_poly = 1.34,cv_J = 750):
+def combustion_Wiebe(n_cylinder = 6, bore = 0.0955, stroke = 0.0814, 
+                     conrod = 0.1442, compressionRatio = 10.3, rpm = 3000, throttle = 1.0, ve = 0.9, 
+                     LHV = 44E6, rho = 1.016, gas_constant = 287, T_ivc = 330, 
+                     a = 5, m = 2, combustion_efficiency = 0.98, n_poly_compression = 1.34, n_poly_expansion = 1.26, cv_J = 750):
     # GEOMETRY
     V_displacement = np.pi * (bore**2 / 4) * stroke
     V_clearance = V_displacement / (compressionRatio - 1)
@@ -185,12 +176,18 @@ def combustion_Wiebe(n_cylinder = 4, bore = 0.086, stroke = 0.086,
     V = V_clearance + crossSec * piston_pos
     dV_dtheta = np.gradient(V, crank_angle) # Numerical derivative dV/dθ
     # TIMING
-    ivc_rad = np.deg2rad(-110.0) # Approximate
-    soc_rad = np.deg2rad(-10.0) # Approximate
-    eoc_rad = np.deg2rad(25.0) # Approximate
+    ivo_rad = np.deg2rad(130.0)
+    ivc_rad = np.deg2rad(-110.0)
+    soc_rad = np.deg2rad(-10.0)
+    eoc_rad = np.deg2rad(25.0)
+    evo_rad = np.deg2rad(110.0)
+    evc_rad = np.deg2rad(-160.0)
+    i_ivo = int(np.argmin(np.abs(crank_angle - ivo_rad))) 
     i_ivc = int(np.argmin(np.abs(crank_angle - ivc_rad)))
     i_soc = int(np.argmin(np.abs(crank_angle - soc_rad)))
-    i_eoc = int(np.argmin(np.abs(crank_angle - eoc_rad)))
+    i_eoc = int(np.argmin(np.abs(crank_angle - eoc_rad))) 
+    i_evo = int(np.argmin(np.abs(crank_angle - evo_rad)))
+    i_evc = int(np.argmin(np.abs(crank_angle - evc_rad))) 
     # TRAPPED MASS
     p_ivc = (20 + throttle * (100 - 20)) * 1e3 # Pa
     mAirpercycle = p_ivc * V[i_ivc] / (gas_constant * T_ivc)
@@ -198,7 +195,7 @@ def combustion_Wiebe(n_cylinder = 4, bore = 0.086, stroke = 0.086,
     m_trapped = mAirpercycle + mFuelpercycle
     # COMPRESSION STROKE
     V_compression = V[i_ivc:i_soc+1]
-    P_compression = (p_ivc * (V[i_ivc]/ V_compression) ** n_poly) # Polytropic compression
+    P_compression = (p_ivc * (V[i_ivc]/ V_compression) ** n_poly_compression) # Polytropic compression
     T_compression = (P_compression * V_compression / (m_trapped * gas_constant))
     # TOTAL ENERGY RELEASE
     Q_tot = mFuelpercycle * combustion_efficiency * LHV
@@ -223,6 +220,24 @@ def combustion_Wiebe(n_cylinder = 4, bore = 0.086, stroke = 0.086,
         T_combustion.append(T_current)
         P_combustion.append(P_current)
         mfb_list.append(mfb)
+    # EXPANSION STROKE
+    P_eoc = P_combustion[-1]
+    V_eoc = V[i_eoc]
+    V_expansion = V[i_eoc:i_evo+1]
+    P_expansion = P_eoc * (V_eoc / V_expansion)**n_poly_expansion
+    T_expansion = P_expansion * V_expansion / (m_trapped * gas_constant)
+    # BLOWDOWN
+    T_exhaust_target = 1100.0
+    blowdown_rad = crank_angle[i_evo:i_ivo+1]
+    alpha = (blowdown_rad - evo_rad) / (ivo_rad - evo_rad)
+    V_blowdown = V[i_evo:i_ivo+1]
+    P_exhaust = 1.05 * 1e5
+    P_evo = P_expansion[-1]
+    T_evo = T_expansion[-1]
+    Tau = (ivo_rad - evo_rad) / 3
+    P_blowdown = P_exhaust + (P_evo - P_exhaust) * np.exp(-(blowdown_rad - evo_rad) / Tau)
+    T_blowdown = T_evo + alpha * (T_exhaust_target - T_evo)
+    m_blowdown = P_blowdown * V_blowdown / (gas_constant * T_blowdown)
     df = pd.DataFrame({
         'Crank Angle (deg)': np.degrees(crank_angle),
         'Volume (m3)': V,
@@ -233,8 +248,12 @@ def combustion_Wiebe(n_cylinder = 4, bore = 0.086, stroke = 0.086,
     })
     df.loc[i_ivc:i_soc, 'Pressure (bar)'] = P_compression / 1e5
     df.loc[i_soc:i_eoc, 'Pressure (bar)'] = np.array(P_combustion) /1e5
+    df.loc[i_eoc:i_evo, 'Pressure (bar)'] = P_expansion / 1e5
+    df.loc[i_evo:i_ivo, 'Pressure (bar)'] = P_blowdown / 1e5
     df.loc[i_ivc:i_soc, 'Temperature (K)']  = T_compression
     df.loc[i_soc:i_eoc, 'Temperature (K)'] =np.array(T_combustion)
+    df.loc[i_eoc:i_evo, 'Temperature (K)']  = T_expansion
+    df.loc[i_evo:i_ivo, 'Temperature (K)']  = T_blowdown
     df.loc[i_soc:i_eoc, 'Mass Fraction Burned'] = np.array(mfb_list)
     plt.figure(figsize=(10,6))
     # Pressure
