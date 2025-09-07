@@ -162,7 +162,7 @@ def estimate_emissions(mDotFuel, AFR, comb_eff, load_frac=0.6, ei_co2_g_per_kg=3
 
     return {'CO2': gps_CO2, 'CO': gps_CO, 'NOx': gps_NOx, 'HC': gps_HC}
 def combustion_Wiebe(n_cylinder = 6, bore = 0.0955, stroke = 0.0814, 
-                     conrod = 0.1442, compressionRatio = 10.3, rpm = 3000, throttle = 1.0, ve = 0.9, 
+                     conrod = 0.1442, compressionRatio = 10.3, rpm = 3000, throttle = 1.0, ve = 1.012, 
                      LHV = 44E6, rho = 1.016, gas_constant = 287, T_ivc = 330, 
                      a = 5, m = 2, combustion_efficiency = 0.98, n_poly_compression = 1.34, n_poly_expansion = 1.26, cv_J = 750):
     # GEOMETRY
@@ -190,7 +190,7 @@ def combustion_Wiebe(n_cylinder = 6, bore = 0.0955, stroke = 0.0814,
     i_evc = int(np.argmin(np.abs(crank_angle - evc_rad))) 
     # TRAPPED MASS
     p_ivc = (20 + throttle * (100 - 20)) * 1e3 # Pa
-    mAirpercycle = p_ivc * V[i_ivc] / (gas_constant * T_ivc)
+    mAirpercycle = p_ivc * V[i_ivc] * ve / (gas_constant * T_ivc)
     mFuelpercycle =mAirpercycle / cal.get_target_AFR(rpm)
     m_trapped = mAirpercycle + mFuelpercycle
     # COMPRESSION STROKE
@@ -227,17 +227,53 @@ def combustion_Wiebe(n_cylinder = 6, bore = 0.0955, stroke = 0.0814,
     P_expansion = P_eoc * (V_eoc / V_expansion)**n_poly_expansion
     T_expansion = P_expansion * V_expansion / (m_trapped * gas_constant)
     # BLOWDOWN
-    T_exhaust_target = 1100.0
     blowdown_rad = crank_angle[i_evo:i_ivo+1]
-    alpha = (blowdown_rad - evo_rad) / (ivo_rad - evo_rad)
     V_blowdown = V[i_evo:i_ivo+1]
-    P_exhaust = 1.05 * 1e5
+    # Targets
+    P_exhaust = 1.05e5    
+    T_exhaust_target = 1150.0
+    V_ivo = V[i_ivo]
+    m_target = P_exhaust * V_ivo / (gas_constant * T_exhaust_target)
+
     P_evo = P_expansion[-1]
     T_evo = T_expansion[-1]
-    Tau = (ivo_rad - evo_rad) / 3
-    P_blowdown = P_exhaust + (P_evo - P_exhaust) * np.exp(-(blowdown_rad - evo_rad) / Tau)
-    T_blowdown = T_evo + alpha * (T_exhaust_target - T_evo)
-    m_blowdown = P_blowdown * V_blowdown / (gas_constant * T_blowdown)
+    m_evo = m_trapped
+    omega = rpm * 2 * np.pi /60.0
+    delta_m = m_evo - m_target
+    den   = max(ivo_rad - evo_rad, 1e-12)
+    alpha = np.clip((blowdown_rad - evo_rad)/den, 0.0, 1.0)
+    beta  = 0.30                                        # shape (smaller = more front-loaded)
+    S     = (1.0 - np.exp(-alpha/beta)) / (1.0 - np.exp(-1.0/beta))
+    m_bd  = m_evo - delta_m * S
+    m_bd  = np.minimum.accumulate(m_bd)                 # enforce monotone decrease
+    # arrays to hold P,T during blowdown
+    P_bd = np.empty_like(blowdown_rad)
+    T_bd = np.empty_like(blowdown_rad)
+    # initialize at EVO
+    T_bd[0] = T_evo
+    P_bd[0] = m_bd[0] * gas_constant * T_bd[0] / V_blowdown[0]
+    # integrate temperature from the first law (adiabatic CV with outflow):
+    # dT/dt = (-P*dV/dt - R*T*mdot_out) / (m*cv)
+    for i in range(len(blowdown_rad)-1):
+        dtheta_k = blowdown_rad[i+1] - blowdown_rad[i]
+        dt_k     = dtheta_k / omega
+        # geometry rates
+        dVdtheta_k = (V_blowdown[i+1] - V_blowdown[i]) / dtheta_k
+        dVdt_k     = dVdtheta_k * omega
+        # mass-bleed rate (positive outflow)
+        dm_dtheta_k = (m_bd[i+1] - m_bd[i]) / dtheta_k     # negative
+        mdot_out_k  = -dm_dtheta_k * omega                 # positive
+        # current pressure
+        P_k = m_bd[i] * gas_constant * T_bd[i] / V_blowdown[i]
+        # temperature ODE
+        dTdt_k   = (-P_k * dVdt_k - gas_constant * T_bd[i] * mdot_out_k) / (m_bd[i] * cv_J)
+        T_bd[i+1] = max(300.0, T_bd[i] + dTdt_k * dt_k)
+        P_bd[i+1] = m_bd[i+1] * gas_constant * T_bd[i+1] / V_blowdown[i+1]
+    # write blowdown slice
+    P_blowdown = P_bd
+    T_blowdown = T_bd
+
+    # DATA STORAGE
     df = pd.DataFrame({
         'Crank Angle (deg)': np.degrees(crank_angle),
         'Volume (m3)': V,
@@ -274,5 +310,36 @@ def combustion_Wiebe(n_cylinder = 6, bore = 0.0955, stroke = 0.0814,
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-    return
+    # --- p–V diagram (closed loop) ---
+    P_pa = (df['Pressure (bar)'].to_numpy() * 1e5)
+    V_m3 = df['Volume (m3)'].to_numpy()
+    mask = ~np.isnan(P_pa)
+
+    plt.figure()
+    plt.plot(V_m3[mask], P_pa[mask]/1e5)
+    plt.xlabel('Volume [m³]'); plt.ylabel('Pressure [bar]')
+    plt.title('p–V Loop (single cylinder)'); plt.grid(True) ; plt.show()
+
+    # --- IMEP / BMEP / Torque / Power ---
+    W_cyl = np.trapz(P_pa[mask], V_m3[mask])     # J per cycle per cylinder
+    IMEP_gross = W_cyl / V_displacement                  # Pa
+
+    # If you already have an FMEP model, call it; else a light placeholder:
+    def FMEP_placeholder(rpm):
+        # very rough NA SI curve: (bar -> Pa)
+        return (0.3 + 0.00025 * rpm) * 1e5
+    FMEP = FMEP_placeholder(rpm)
+
+    BMEP = IMEP_gross - FMEP                     # Pa
+    Vd_total = V_displacement * n_cylinder               # m^3
+    Torque_Nm = BMEP * Vd_total / (2*np.pi) / 2     # N·m
+    omega = rpm * 2*np.pi / 60.0
+    Power_kW = Torque_Nm * omega / 1000.0        # kW
+
+    print(f"IMEP_gross = {IMEP_gross/1e5:.2f} bar")
+    print(f"BMEP       = {BMEP/1e5:.2f} bar   (FMEP={FMEP/1e5:.2f} bar)")
+    print(f"Torque     = {Torque_Nm:.1f} N·m")
+    print(f"Power      = {Power_kW:.1f} kW @ {rpm} rpm")
+
+
 combustion_Wiebe()
