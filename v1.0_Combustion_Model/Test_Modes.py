@@ -91,3 +91,5 @@ def FullRangeSweep(RPM_min, RPM_max, displacement_l, ve_mode, ve_table=None, con
             row = [rpm, throttle, t, p, hp, mdotAir, mdotFuel] + emissions
             results.append(row)
     return results
+def DesignComparison():
+    return

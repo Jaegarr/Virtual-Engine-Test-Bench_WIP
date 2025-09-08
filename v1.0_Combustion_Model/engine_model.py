@@ -205,6 +205,22 @@ def combustion_Wiebe(n_cylinder = 6, bore = 0.0955, stroke = 0.0814,
     P_current = P_compression [-1]
     T_current = T_compression [-1]
     P_combustion, T_combustion, mfb_list = [], [], []
+    # --- CA10/50/90 from Wiebe ---
+    def ca_at_mfb(y):
+        # x_y = ((-ln(1-y))/a)^(1/(m+1));  theta_y = SOC + x_y * delta
+        x = (-np.log(1.0 - y) / a)**(1.0 / (m + 1.0))
+        return soc_rad + x * delta
+    ca10_rad = ca_at_mfb(0.10)
+    ca50_rad = ca_at_mfb(0.50)
+    ca90_rad = ca_at_mfb(0.90)
+    ca10_deg = np.degrees(ca10_rad)
+    ca50_deg = np.degrees(ca50_rad)
+    ca90_deg = np.degrees(ca90_rad)
+
+    # (optional) nearest indices if you want point markers tied to your arrays
+    idx10 = int(np.argmin(np.abs(crank_angle - ca10_rad)))
+    idx50 = int(np.argmin(np.abs(crank_angle - ca50_rad)))
+    idx90 = int(np.argmin(np.abs(crank_angle - ca90_rad)))
     for i in range(i_soc, i_eoc+1):
         theta = crank_angle[i]
         x = (theta - soc_rad) / delta
@@ -295,16 +311,30 @@ def combustion_Wiebe(n_cylinder = 6, bore = 0.0955, stroke = 0.0814,
     # Pressure
     plt.subplot(3,1,1)
     plt.plot(df['Crank Angle (deg)'], df['Pressure (bar)'])
+    for ca_deg, label in [(ca10_deg,'CA10'), (ca50_deg,'CA50'), (ca90_deg,'CA90')]:
+        plt.axvline(ca_deg, ls='--', lw=1, c='k', alpha=0.7)
+        ymax = plt.gca().get_ylim()[1]
+        plt.text(ca_deg, 0.95*ymax, label, rotation=90, va='top', ha='right', fontsize=9)
     plt.ylabel('Pressure [bar]')
     plt.grid(True)
     # Temperature
     plt.subplot(3,1,2)
     plt.plot(df['Crank Angle (deg)'], df['Temperature (K)'])
+    for ca_deg in (ca10_deg, ca50_deg, ca90_deg):
+        plt.axvline(ca_deg, ls='--', lw=1, c='k', alpha=0.5)
     plt.ylabel('Temperature [K]')
     plt.grid(True)
     # MFB
     plt.subplot(3,1,3)
     plt.plot(df['Crank Angle (deg)'], df['Mass Fraction Burned'])
+    # verticals
+    for ca_deg in (ca10_deg, ca50_deg, ca90_deg):
+        plt.axvline(ca_deg, ls='--', lw=1, c='k', alpha=0.5)
+    # horizontals at 0.1, 0.5, 0.9
+    for y in (0.10, 0.50, 0.90):
+        plt.axhline(y, ls=':', lw=1, c='gray', alpha=0.6)
+    # dots exactly at CA10/50/90 on the MFB curve
+    plt.plot([ca10_deg, ca50_deg, ca90_deg], [0.10, 0.50, 0.90], 'ko', ms=4)
     plt.xlabel('Crank Angle [deg]')
     plt.ylabel('MFB [-]')
     plt.grid(True)
@@ -321,25 +351,25 @@ def combustion_Wiebe(n_cylinder = 6, bore = 0.0955, stroke = 0.0814,
     plt.title('p–V Loop (single cylinder)'); plt.grid(True) ; plt.show()
 
     # --- IMEP / BMEP / Torque / Power ---
-    W_cyl = np.trapz(P_pa[mask], V_m3[mask])     # J per cycle per cylinder
-    IMEP_gross = W_cyl / V_displacement                  # Pa
+    W_cyl = np.trapezoid(P_pa[mask], V_m3[mask])     # J per cycle per cylinder
+    imep_gross = W_cyl / V_displacement                  # Pa
 
     # If you already have an FMEP model, call it; else a light placeholder:
     def FMEP_placeholder(rpm):
         # very rough NA SI curve: (bar -> Pa)
         return (0.3 + 0.00025 * rpm) * 1e5
-    FMEP = FMEP_placeholder(rpm)
+    fmep = FMEP_placeholder(rpm)
 
-    BMEP = IMEP_gross - FMEP                     # Pa
+    bmep = imep_gross - fmep                     # Pa
     Vd_total = V_displacement * n_cylinder               # m^3
-    Torque_Nm = BMEP * Vd_total / (2*np.pi) / 2     # N·m
+    Torque_Nm = bmep * Vd_total / (2*np.pi) / 2     # N·m
     omega = rpm * 2*np.pi / 60.0
     Power_kW = Torque_Nm * omega / 1000.0        # kW
 
-    print(f"IMEP_gross = {IMEP_gross/1e5:.2f} bar")
-    print(f"BMEP       = {BMEP/1e5:.2f} bar   (FMEP={FMEP/1e5:.2f} bar)")
+    print(f"IMEP_gross = {imep_gross/1e5:.2f} bar")
+    print(f"BMEP       = {bmep/1e5:.2f} bar   (FMEP={fmep/1e5:.2f} bar)")
     print(f"Torque     = {Torque_Nm:.1f} N·m")
     print(f"Power      = {Power_kW:.1f} kW @ {rpm} rpm")
-
+    return
 
 combustion_Wiebe()
