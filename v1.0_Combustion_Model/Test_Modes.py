@@ -1,7 +1,7 @@
 from engine_model import calculate_air_mass_flow, calculate_power, calculate_torque, calculate_horsePower, combustion_Wiebe
 import Calibration as cal
 from Engine_Database import EngineSpec
-from typing import Op
+from typing import Optional
 def RunPoint(rpm, throttle, ve, spec: EngineSpec, analyze: bool = False, combustion_kwargs: Optional[dict] = None) -> dict:
     return
 def SingleRun(n_cylinder, bore, stroke , conrod , compressionRatio , rpm , throttle , ve, ve_mode, ve_table=None, constant_ve=None):

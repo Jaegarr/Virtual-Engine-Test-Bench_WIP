@@ -2,12 +2,13 @@ from dataclasses import dataclass
 from typing import Dict, Optional, List
 import numpy as np
 import pandas as pd
+@dataclass
 class EngineSpec:
-    n_cylinder = int
-    bore_m = float
-    stroke_m = float
-    conrod_m = float
-    compression_ratio = float
+    n_cylinder : int
+    bore_m : float
+    stroke_m : float
+    conrod_m : float
+    compression_ratio : float
     def V_displacement_cylinder_m3(self) -> float:
         return np.pi * self.bore_m**2 / 4.0 * self.stroke_m
     def V_displacement_total_m3(self) -> float:
@@ -21,9 +22,7 @@ class EngineDB:
         if name not in self.db:
             raise KeyError(f"Engine '{name}' not found. Available: {list(self._db.keys())}")
     def list(self) -> List[str]:
-        return sorted(self._db.keys())
-    Engines = EngineDB()
-    Engines.register("Nissan_VQ35DE_350Z_V6",
-    EngineSpec( n_cylinder=6, bore_m=0.0955, stroke_m=0.0814, conrod_m=0.1442, compression_ratio=10.3)
-)
-    
+        return sorted(self.db.keys())
+Engines = EngineDB()
+Engines.register("Nissan_VQ35DE__NA_3.5L_V6_350Z", EngineSpec( n_cylinder=6, bore_m=0.0955, stroke_m=0.0814, conrod_m=0.1442, compression_ratio=10.3))
+
