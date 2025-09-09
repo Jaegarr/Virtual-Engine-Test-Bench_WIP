@@ -1,7 +1,10 @@
-from engine_model import calculate_air_mass_flow, calculate_power, calculate_torque, calculate_horsePower
+from engine_model import calculate_air_mass_flow, calculate_power, calculate_torque, calculate_horsePower, combustion_Wiebe
 import Calibration as cal
-
-def SingleRun(rpm, displacement_l, ve_mode, ve_table=None, constant_ve=None):
+from Engine_Database import EngineSpec
+from typing import Op
+def RunPoint(rpm, throttle, ve, spec: EngineSpec, analyze: bool = False, combustion_kwargs: Optional[dict] = None) -> dict:
+    return
+def SingleRun(n_cylinder, bore, stroke , conrod , compressionRatio , rpm , throttle , ve, ve_mode, ve_table=None, constant_ve=None):
     """
     Perform a single engine speed simulation across a range of throttle positions.
 
@@ -23,6 +26,7 @@ def SingleRun(rpm, displacement_l, ve_mode, ve_table=None, constant_ve=None):
     else:
         ve_list = [constant_ve] * len(throttles)
     for throttle, ve in zip(throttles, ve_list):
+        combustion_Wiebe(n_cylinder, bore, stroke , conrod , compressionRatio , rpm , throttle , ve)
         mdotAir = calculate_air_mass_flow(rpm, displacement_l, ve)
         t, mdotFuel, emissions = calculate_torque(rpm, mdotAir, displacement_l)
         p = calculate_power(rpm, t)
