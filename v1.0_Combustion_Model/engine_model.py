@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import Calibration as cal
 from scipy.interpolate import RegularGridInterpolator
+from Engine_Database import EngineSpec
 
 def calculate_air_mass_flow(rpm, displacement_l, ve, rho=1.22588):
     '''
@@ -161,13 +162,14 @@ def estimate_emissions(mDotFuel, AFR, comb_eff, load_frac=0.6, ei_co2_g_per_kg=3
     gps_HC  = EI_HC  * mDotFuel
 
     return {'CO2': gps_CO2, 'CO': gps_CO, 'NOx': gps_NOx, 'HC': gps_HC}
-def combustion_Wiebe(n_cylinder = 6, bore = 0.0955, stroke = 0.0814, 
-                     conrod = 0.1442, compressionRatio = 10.3, rpm = 3000, throttle = 1.0, ve = 1.012, 
-                     LHV = 44E6, rho = 1.016, gas_constant = 287, T_ivc = 330, 
-                     a = 5, m = 2, combustion_efficiency = 0.98, n_poly_compression = 1.34, n_poly_expansion = 1.26, cv_J = 750):
+def combustion_Wiebe( spec: EngineSpec,rpm , throttle, ve, # Inputs
+                     LHV = 44E6, gas_constant = 287, T_ivc = 330, cv_J = 750, # Fuel / Thermodynamics 
+                     a = 5, m = 2, combustion_efficiency = 0.98, n_poly_compression = 1.34, n_poly_expansion = 1.26, # Wiebe Parameters
+                     plot = True, return_dic = False): # I/O
+    # CRANK ANGLE GRID
     crank_angle = np.linspace(-np.pi, np.pi, 1441)
     dtheta = crank_angle[1] - crank_angle[0]
-    # TIMING
+    # VALVE & BURN TIMINGS
     ivo_rad = np.deg2rad(130.0)
     ivc_rad = np.deg2rad(-110.0)
     soc_rad = np.deg2rad(-10.0)
@@ -181,7 +183,6 @@ def combustion_Wiebe(n_cylinder = 6, bore = 0.0955, stroke = 0.0814,
     i_evo = int(np.argmin(np.abs(crank_angle - evo_rad)))
     i_evc = int(np.argmin(np.abs(crank_angle - evc_rad))) 
     delta = eoc_rad - soc_rad
-
     # cv(T) MAPS
     T_knots = np.array([300, 600, 1000, 1500, 2000, 2500, 3000, 3500])
     cv_u_knots = np.array([718, 740, 820,  900,  960, 1000, 1030, 1050])   # unburned (air-ish)
@@ -193,9 +194,7 @@ def combustion_Wiebe(n_cylinder = 6, bore = 0.0955, stroke = 0.0814,
         T = np.clip(T, 300.0, 3500.0)
         return np.interp(T, T_knots, cv_b_knots)
     def cv_mix(T, mfb):
-        # linear blend by mass-fraction-burned (0..1)
-        return (1.0 - mfb) * cv_unburned(T) + mfb * cv_burned(T)
-    
+        return (1.0 - mfb) * cv_unburned(T) + mfb * cv_burned(T) # linear blend by mass-fraction-burned (0..1)
     # CA10/50/90
     def ca_at_mfb(y):
         x = (-np.log(1.0 - y) / a)**(1.0 / (m + 1.0))
@@ -205,22 +204,22 @@ def combustion_Wiebe(n_cylinder = 6, bore = 0.0955, stroke = 0.0814,
     idx10 = int(np.argmin(np.abs(crank_angle - ca10_rad)))
     idx50 = int(np.argmin(np.abs(crank_angle - ca50_rad)))
     idx90 = int(np.argmin(np.abs(crank_angle - ca90_rad)))
-
     # GEOMETRY
-    V_displacement = np.pi * (bore**2 / 4) * stroke
-    V_clearance = V_displacement / (compressionRatio - 1)
-    crank_radius = stroke / 2
-    crossSec = np.pi * bore**2 / 4
-
+    V_displacement = np.pi * (spec.bore_m**2 / 4) * spec.stroke_m
+    V_clearance = V_displacement / (spec.compression_ratio - 1)
+    crank_radius = spec.stroke_m / 2
+    crossSec = np.pi * spec.bore_m**2 / 4
     # POSITION
-    piston_pos = crank_radius * (1 - np.cos(crank_angle)) + crank_radius**2 / (2 * conrod) * (1 - np.cos(2 * crank_angle))
+    piston_pos = crank_radius * (1 - np.cos(crank_angle)) + crank_radius**2 / (2 * spec.conrod_m) * (1 - np.cos(2 * crank_angle))
     V = V_clearance + crossSec * piston_pos
     dV_dtheta = np.gradient(V, crank_angle)
-
     # TRAPPED MASS
-    p_ivc = (20 + throttle * (100 - 20)) * 1e3  # Pa
-    mAirpercycle = p_ivc * V[i_ivc] * ve / (gas_constant * T_ivc)
-    mFuelpercycle = mAirpercycle / cal.get_target_AFR(rpm)
+    p_ivc = 20e3 + throttle * (100e3 - 20e3)  # Pa
+    rho_ivc =  p_ivc / (gas_constant * T_ivc) # kg/m3
+    mAirpercycle = rho_ivc * V[i_ivc] * ve  # kg per cycle
+    mAirpersec = mAirpercycle * spec.n_cylinder * rpm / 120 # All cylinders
+    mFuelpercycle = mAirpercycle / cal.get_target_AFR(rpm) # kg per cycle
+    mFuelpersec = mAirpersec / cal.get_target_AFR(rpm)
     m_trapped = mAirpercycle + mFuelpercycle
 
     # COMPRESSION STROKE
@@ -323,41 +322,78 @@ def combustion_Wiebe(n_cylinder = 6, bore = 0.0955, stroke = 0.0814,
     fmep = (0.25 + 0.02 * rpm / 1000 + 0.03 * (rpm / 1000) ** 2) * 1e5
     pmep = (0.02 + 0.00001 * rpm) * 1e5
     bmep = imep_gross - fmep - pmep
-    Vd_total = V_displacement * n_cylinder
+    Vd_total = V_displacement * spec.n_cylinder
     Torque_Nm = bmep * Vd_total / (4*np.pi)      # 4π for 4-stroke
     omega = rpm * 2*np.pi / 60.0
     Power_kW = Torque_Nm * omega / 1000.0
+    bsfc = mFuelpersec * 3600 / Power_kW
 
     print(f"IMEP_gross = {imep_gross/1e5:.2f} bar")
     print(f"BMEP       = {bmep/1e5:.2f} bar   (FMEP={fmep/1e5:.2f} bar, PMEP={pmep/1e5:.2f} bar)")
     print(f"Torque     = {Torque_Nm:.1f} N·m")
     print(f"Power      = {Power_kW:.1f} kW @ {rpm} rpm")
+
     # PLOTTING
-    plt.figure()
-    plt.plot(V_m3[mask], P_pa[mask]/1e5)
-    plt.xlabel('Volume [m³]'); plt.ylabel('Pressure [bar]')
-    plt.title('p–V Loop (single cylinder)'); plt.grid(True); plt.show()
-    plt.figure(figsize=(10,6))
-    plt.subplot(3,1,1)
-    plt.plot(df['Crank Angle (deg)'], df['Pressure (bar)'])
-    for ca_deg, label in [(np.degrees(ca10_rad),'CA10'), (np.degrees(ca50_rad),'CA50'), (np.degrees(ca90_rad),'CA90')]:
-        plt.axvline(ca_deg, ls='--', lw=1, c='k', alpha=0.7)
-        ymax = plt.gca().get_ylim()[1]; plt.text(ca_deg, 0.95*ymax, label, rotation=90, va='top', ha='right', fontsize=9)
-    plt.ylabel('Pressure [bar]'); plt.grid(True)
+    if plot:
+        plt.figure()
+        plt.plot(V_m3[mask], P_pa[mask]/1e5)
+        plt.xlabel('Volume [m³]'); plt.ylabel('Pressure [bar]')
+        plt.title('p–V Loop (single cylinder)'); plt.grid(True); plt.show()
+        plt.figure(figsize=(10,6))
+        plt.subplot(3,1,1)
+        plt.plot(df['Crank Angle (deg)'], df['Pressure (bar)'])
+        for ca_deg, label in [(np.degrees(ca10_rad),'CA10'), (np.degrees(ca50_rad),'CA50'), (np.degrees(ca90_rad),'CA90')]:
+            plt.axvline(ca_deg, ls='--', lw=1, c='k', alpha=0.7)
+            ymax = plt.gca().get_ylim()[1]; plt.text(ca_deg, 0.95*ymax, label, rotation=90, va='top', ha='right', fontsize=9)
+        plt.ylabel('Pressure [bar]'); plt.grid(True)
 
-    plt.subplot(3,1,2)
-    plt.plot(df['Crank Angle (deg)'], df['Temperature (K)'])
-    for ca_deg in (np.degrees(ca10_rad), np.degrees(ca50_rad), np.degrees(ca90_rad)):
-        plt.axvline(ca_deg, ls='--', lw=1, c='k', alpha=0.5)
-    plt.ylabel('Temperature [K]'); plt.grid(True)
+        plt.subplot(3,1,2)
+        plt.plot(df['Crank Angle (deg)'], df['Temperature (K)'])
+        for ca_deg in (np.degrees(ca10_rad), np.degrees(ca50_rad), np.degrees(ca90_rad)):
+            plt.axvline(ca_deg, ls='--', lw=1, c='k', alpha=0.5)
+        plt.ylabel('Temperature [K]'); plt.grid(True)
 
-    plt.subplot(3,1,3)
-    plt.plot(df['Crank Angle (deg)'], df['Mass Fraction Burned'])
-    for ca_deg in (np.degrees(ca10_rad), np.degrees(ca50_rad), np.degrees(ca90_rad)):
-        plt.axvline(ca_deg, ls='--', lw=1, c='k', alpha=0.5)
-    for y in (0.10, 0.50, 0.90): plt.axhline(y, ls=':', lw=1, c='gray', alpha=0.6)
-    plt.plot([np.degrees(ca10_rad), np.degrees(ca50_rad), np.degrees(ca90_rad)], [0.10, 0.50, 0.90], 'ko', ms=4)
-    plt.xlabel('Crank Angle [deg]'); plt.ylabel('MFB [-]'); plt.grid(True)
-    plt.tight_layout(); plt.show()
-    return
+        plt.subplot(3,1,3)
+        plt.plot(df['Crank Angle (deg)'], df['Mass Fraction Burned'])
+        for ca_deg in (np.degrees(ca10_rad), np.degrees(ca50_rad), np.degrees(ca90_rad)):
+            plt.axvline(ca_deg, ls='--', lw=1, c='k', alpha=0.5)
+        for y in (0.10, 0.50, 0.90): plt.axhline(y, ls=':', lw=1, c='gray', alpha=0.6)
+        plt.plot([np.degrees(ca10_rad), np.degrees(ca50_rad), np.degrees(ca90_rad)], [0.10, 0.50, 0.90], 'ko', ms=4)
+        plt.xlabel('Crank Angle [deg]'); plt.ylabel('MFB [-]'); plt.grid(True)
+        plt.tight_layout(); plt.show()
+        return
+    if return_dic:
+        out = {
+        "imep_gross_pa": imep_gross,
+        "bmep_pa": bmep,
+        "fmep_pa": fmep,
+        "pmep_pa": pmep,
+        "torque_nm": Torque_Nm,
+        "power_kw": Power_kW,
+        "m_air_per_cycle": mAirpercycle,   # per cyl, per cycle
+        "m_fuel_per_cycle": mFuelpercycle, # per cyl, per cycle
+        "ca10_deg": ca10_deg,
+        "ca50_deg": ca50_deg,
+        "ca90_deg": ca90_deg,
+        "pmax_bar": np.nanmax(df['Pressure (bar)'].to_numpy()),
+        "tmax_k":   np.nanmax(df['Temperature (K)'].to_numpy()),
+    }
+        return out
+    if return_dic:
+        return {
+            "imep_gross_pa": float(imep_gross),
+            "bmep_pa": float(bmep),
+            "fmep_pa": float(fmep),
+            "pmep_pa": float(pmep),
+            "torque_nm": float(Torque_Nm),
+            "power_kw": float(Power_kW),
+            "m_air_per_cycle": float(mAirpercycle),    # per cyl, per cycle
+            "m_fuel_per_cycle": float(mFuelpercycle),  # per cyl, per cycle
+            "ca10_deg": float(ca10_deg),
+            "ca50_deg": float(ca50_deg),
+            "ca90_deg": float(ca90_deg),
+            "pmax_bar": float(np.nanmax(df['Pressure (bar)'].to_numpy())),
+            "tmax_k":   float(np.nanmax(df['Temperature (K)'].to_numpy())),
+        }
+ 
 combustion_Wiebe()
