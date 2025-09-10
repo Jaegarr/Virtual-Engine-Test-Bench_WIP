@@ -395,5 +395,3 @@ def combustion_Wiebe( spec: EngineSpec,rpm , throttle, ve, # Inputs
             "pmax_bar": float(np.nanmax(df['Pressure (bar)'].to_numpy())),
             "tmax_k":   float(np.nanmax(df['Temperature (K)'].to_numpy())),
         }
- 
-combustion_Wiebe()
