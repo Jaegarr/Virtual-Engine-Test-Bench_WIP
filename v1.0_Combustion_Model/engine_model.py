@@ -327,12 +327,6 @@ def combustion_Wiebe( spec: EngineSpec,rpm , throttle, ve, # Inputs
     omega = rpm * 2*np.pi / 60.0
     Power_kW = Torque_Nm * omega / 1000.0
     bsfc = mFuelpersec * 3600 / Power_kW
-
-    print(f"IMEP_gross = {imep_gross/1e5:.2f} bar")
-    print(f"BMEP       = {bmep/1e5:.2f} bar   (FMEP={fmep/1e5:.2f} bar, PMEP={pmep/1e5:.2f} bar)")
-    print(f"Torque     = {Torque_Nm:.1f} N·m")
-    print(f"Power      = {Power_kW:.1f} kW @ {rpm} rpm")
-
     # PLOTTING
     if plot:
         plt.figure()
@@ -362,6 +356,7 @@ def combustion_Wiebe( spec: EngineSpec,rpm , throttle, ve, # Inputs
         plt.xlabel('Crank Angle [deg]'); plt.ylabel('MFB [-]'); plt.grid(True)
         plt.tight_layout(); plt.show()
         return
+    #RESULTS
     if return_dic:
         out = {
         "imep_gross_pa": imep_gross,
@@ -379,19 +374,3 @@ def combustion_Wiebe( spec: EngineSpec,rpm , throttle, ve, # Inputs
         "tmax_k":   np.nanmax(df['Temperature (K)'].to_numpy()),
     }
         return out
-    if return_dic:
-        return {
-            "imep_gross_pa": float(imep_gross),
-            "bmep_pa": float(bmep),
-            "fmep_pa": float(fmep),
-            "pmep_pa": float(pmep),
-            "torque_nm": float(Torque_Nm),
-            "power_kw": float(Power_kW),
-            "m_air_per_cycle": float(mAirpercycle),    # per cyl, per cycle
-            "m_fuel_per_cycle": float(mFuelpercycle),  # per cyl, per cycle
-            "ca10_deg": float(ca10_deg),
-            "ca50_deg": float(ca50_deg),
-            "ca90_deg": float(ca90_deg),
-            "pmax_bar": float(np.nanmax(df['Pressure (bar)'].to_numpy())),
-            "tmax_k":   float(np.nanmax(df['Temperature (K)'].to_numpy())),
-        }
