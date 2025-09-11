@@ -26,7 +26,3 @@ class EngineDB:
         return sorted(self.db.keys())
 Engines = EngineDB()
 Engines.register("Nissan_VQ35DE__NA_3.5L_V6_350Z", EngineSpec( n_cylinder=6, bore_m=0.0955, stroke_m=0.0814, conrod_m=0.1442, compression_ratio=10.3))
-
-print("Engines:", Engines.list())
-spec = Engines.get("Nissan_VQ35DE__NA_3.5L_V6_350Z")
-print("Spec:", spec)

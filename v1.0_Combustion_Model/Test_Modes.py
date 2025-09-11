@@ -52,7 +52,7 @@ def RunPoint(spec: EngineSpec, rpm: int, throttle: float, constant_ve: float, ve
     }
     return out
     return
-def SingleRun(n_cylinder, bore, stroke , conrod , compressionRatio , rpm , throttle , ve, ve_mode, ve_table=None, constant_ve=None):
+def SingleRun(rpm, displacement_l, ve_mode, ve_table=None, constant_ve=None):
     """
     Perform a single engine speed simulation across a range of throttle positions.
 
@@ -74,7 +74,6 @@ def SingleRun(n_cylinder, bore, stroke , conrod , compressionRatio , rpm , throt
     else:
         ve_list = [constant_ve] * len(throttles)
     for throttle, ve in zip(throttles, ve_list):
-        combustion_Wiebe(n_cylinder, bore, stroke , conrod , compressionRatio , rpm , throttle , ve)
         mdotAir = calculate_air_mass_flow(rpm, displacement_l, ve)
         t, mdotFuel, emissions = calculate_torque(rpm, mdotAir, displacement_l)
         p = calculate_power(rpm, t)
@@ -145,6 +144,7 @@ def FullRangeSweep(RPM_min, RPM_max, displacement_l, ve_mode, ve_table=None, con
     return results
 def DesignComparison():
     return
+
 if __name__ == "__main__":
     spec = Engines.get("Nissan_VQ35DE__NA_3.5L_V6_350Z")
 
