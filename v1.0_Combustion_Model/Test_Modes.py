@@ -3,6 +3,7 @@ import Calibration as cal
 from Engine_Database import EngineSpec, Engines
 from typing import Optional
 import numpy as np
+import pandas as pd
 def RunPoint(spec: EngineSpec, rpm: int, throttle: float, constant_ve: float, ve_mode: str = 'constant', ve_table=None, analyze: bool = False, combustion_kwargs: Optional[dict] = None) -> dict: 
     if combustion_kwargs is None:
         combustion_kwargs = {}
@@ -80,7 +81,8 @@ def SingleRun(rpm, displacement_l, ve_mode, ve_table=None, constant_ve=None):
         row = [rpm, throttle, t, p, hp, mdotAir, mdotFuel] + emissions
         results.append(row)
     return results
-def WideOpenThrottle(RPM_min, RPM_max, displacement_l, ve_mode, ve_table=None, constant_ve=None):
+def WideOpenThrottle(spec, RPM_min: int, RPM_max: int, step:  constant_ve: float, ve_mode: str = 'constant', int = 100, ve_table=None,analyze_points: list[int] | None = None,
+              combustion_kwargs: dict | None = None) -> pd.DataFrame:
     """
     Simulate engine performance at full throttle (100%) over a specified RPM range.
 
