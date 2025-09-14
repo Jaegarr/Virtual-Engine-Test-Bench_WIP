@@ -37,18 +37,22 @@ def RunPoint(spec: EngineSpec, rpm: int, throttle: float, constant_ve: float, ve
         "BMEP (bar)":  result["bmep_pa"]/1e5,
         "FMEP (bar)":  result["fmep_pa"]/1e5,
         "PMEP (bar)":  result["pmep_pa"]/1e5,
-
         "Air Flow (g/s)":  mdot_air,
         "Fuel Flow(g/s)": mdot_fuel,
-
         "BSFC (g/kWh)": BSFC_g_per_kWh,
-
-        "CO2_gps": CO2_gps, "CO_gps": CO_gps, "NOx_gps": NOx_gps, "HC_gps": HC_gps,
-        "CO2_g_kWh": to_gkWh(CO2_gps), "CO_g_kWh": to_gkWh(CO_gps),
-        "NOx_g_kWh": to_gkWh(NOx_gps), "HC_g_kWh": to_gkWh(HC_gps),
-
-        "CA10_deg": result["ca10_deg"], "CA50_deg": result["ca50_deg"], "CA90_deg": result["ca90_deg"],
-        "Pmax_bar": result["pmax_bar"], "Tmax_K": result["tmax_k"],
+        "CO2_gps": CO2_gps, 
+        "CO_gps": CO_gps, 
+        "NOx_gps": NOx_gps, 
+        "HC_gps": HC_gps,
+        "CO2_g_kWh": to_gkWh(CO2_gps), 
+        "CO_g_kWh": to_gkWh(CO_gps),
+        "NOx_g_kWh": to_gkWh(NOx_gps), 
+        "HC_g_kWh": to_gkWh(HC_gps),
+        "CA10_deg": result["ca10_deg"], 
+        "CA50_deg": result["ca50_deg"], 
+        "CA90_deg": result["ca90_deg"],
+        "Pmax_bar": result["pmax_bar"], 
+        "Tmax_K": result["tmax_k"],
     }
     return out
     return
@@ -81,37 +85,46 @@ def SingleRun(rpm, displacement_l, ve_mode, ve_table=None, constant_ve=None):
         row = [rpm, throttle, t, p, hp, mdotAir, mdotFuel] + emissions
         results.append(row)
     return results
-def WideOpenThrottle(spec, RPM_min: int, RPM_max: int, step:  constant_ve: float, ve_mode: str = 'constant', int = 100, ve_table=None,analyze_points: list[int] | None = None,
-              combustion_kwargs: dict | None = None) -> pd.DataFrame:
+def WideOpenThrottle(spec,RPM_min: int, RPM_max: int, step: int = 100, *, ve_mode: str = 'constant', constant_ve: float = 0.98, ve_table=None, analyze_points: list[int] | None = None, combustion_kwargs: dict | None = None) -> pd.DataFrame:
     """
-    Simulate engine performance at full throttle (100%) over a specified RPM range.
+    WOT sweep (Throttle = 1.0) from RPM_min to RPM_max.
+    Uses RunPoint(...) at each RPM and returns a DataFrame of results.
 
-    Parameters:
-        RPM_min (int): Minimum RPM for the simulation.
-        RPM_max (int): Maximum RPM for the simulation.
-        displacement_l (float): Engine displacement in liters.
-        ve_mode (str): 'table' to use VE table interpolation, 'constant' for fixed VE.
-        ve_table (pandas.DataFrame, optional): VE table used if ve_mode=='table'.
-        constant_ve (float, optional): Constant volumetric efficiency used if ve_mode=='constant'.
+    Parameters
+    ----------
+    spec : EngineSpec
+        Engine definition from your DB (or custom).
+    RPM_min, RPM_max : int
+        Sweep range, inclusive.
+    step : int, default 100
+        RPM step.
+    ve_mode : {'constant','table'}, default 'constant'
+        How to resolve VE at each point.
+    constant_ve : float, default 0.98
+        VE used when ve_mode='constant'.
+    ve_table : any
+        Passed through to your VE interpolation when ve_mode='table'.
+    analyze_points : list[int] | None
+        RPMs at which to enable comb. plots (RunPoint analyze=True).
+    combustion_kwargs : dict | None
+        Optional knobs passed into combustion_Wiebe (e.g., a, m, etc.).
 
-    Returns:
-        list of lists: Each inner list contains [RPM, Throttle=1.0, Torque (Nm), Power (kW), Horsepower].
-                       Covers RPM range in steps of 100 RPM.
+    Returns
+    -------
+    pd.DataFrame
+        Rows per RPM with columns from RunPoint (Torque_Nm, Power_kW, etc.).
     """
-    results = []
-    throttle = 1.0
-    for rpm in range(RPM_min, RPM_max + 1, 100):
-        if ve_mode == 'table':
-            ve = cal.get_ve_from_table(rpm, throttle, ve_table)
-        else:
-            ve = constant_ve
-        mdotAir = calculate_air_mass_flow(rpm, displacement_l, ve)
-        t, mdotFuel, emissions = calculate_torque(rpm, mdotAir, displacement_l)
-        p = calculate_power(rpm, t)
-        hp = calculate_horsePower(rpm, t)
-        row = [rpm, throttle, t, p, hp, mdotAir*1000, mdotFuel*1000] + emissions
-        results.append(row)
-    return results
+    if combustion_kwargs is None:
+        combustion_kwargs = {}
+    if analyze_points is None:
+        analyze_points = []
+    analyze_set = set(analyze_points)
+    rows = []
+    for rpm in range(int(RPM_min), int(RPM_max) + 1, int(step)):
+        row = RunPoint(spec=spec, rpm=rpm,throttle=1.0, ve_mode=ve_mode, constant_ve=constant_ve, ve_table=ve_table, analyze=(rpm in analyze_set), combustion_kwargs=combustion_kwargs)
+        rows.append(row)
+    df = pd.DataFrame(rows).sort_values("RPM").reset_index(drop=True)
+    return df
 def FullRangeSweep(RPM_min, RPM_max, displacement_l, ve_mode, ve_table=None, constant_ve=None):
     """
     Perform a full simulation sweep across RPM and throttle range.
