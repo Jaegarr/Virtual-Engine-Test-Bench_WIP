@@ -25,7 +25,6 @@ class EngineSpec:
     ve_table: Optional[Union[pd.DataFrame, str, os.PathLike]] = None  # path or DF
     def __post_init__(self):
         if isinstance(self.ve_table, (str, os.PathLike)) or self.ve_table is not None and not isinstance(self.ve_table, pd.DataFrame):
-            # will also coerce things like pathlib.Path
             self.ve_table = load_ve_table(self.ve_table)
     def V_displacement_cylinder_m3(self) -> float:
         import numpy as np
