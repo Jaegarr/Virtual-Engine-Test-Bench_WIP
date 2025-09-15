@@ -1,6 +1,7 @@
 import os, datetime, re
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 def export_results_to_csv(data, default_folder="Results"):
     """
     Export a pandas DataFrame to a CSV file with a user-defined filename and folder.
@@ -42,6 +43,21 @@ def export_results_to_csv(data, default_folder="Results"):
     full_path = os.path.join(full_folder, filename)
     data.to_csv(full_path, index=False)
     print(f"✅ Results exported to: {full_path}")
+def to_legacy(df: pd.DataFrame) -> pd.DataFrame:
+    """Map RunPoint/Mode outputs to legacy Reporting column names."""
+    return pd.DataFrame({
+        'Engine Speed (RPM)': df['RPM'],
+        'Throttle':           df['Throttle'],
+        'Torque (Nm)':        df['Torque_Nm'],
+        'Power (kW)':         df['Power_kW'],
+        'Horsepower':         df['Power_kW'] * 1.34102209,     # kW -> HP
+        'Air Flow(g/s)':      df['mdot_air_kg_s']  * 1000.0,   # kg/s -> g/s
+        'Fuel Flow(g/s)':     df['mdot_fuel_kg_s'] * 1000.0,   # kg/s -> g/s
+        'CO2(g/s)':           df['CO2_gps'],
+        'CO(g/s)':            df['CO_gps'],
+        'NOx(g/s)':           df['NOx_gps'],
+        'HC(g/s)':            df['HC_gps'],
+    })
 def rpm_vs_plots(df):
     unique_throttle = np.unique(df['Throttle'])
     if (len(unique_throttle) == 1):  # WOT case

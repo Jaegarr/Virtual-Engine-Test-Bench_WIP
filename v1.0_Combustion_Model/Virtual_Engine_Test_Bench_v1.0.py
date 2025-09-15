@@ -1,9 +1,8 @@
 import sys
 import re
 import pandas as pd
-import Calibration as cal
 from Test_Modes import FullRangeSweep, WideOpenThrottle, SingleRun
-from Reporting import export_results_to_csv,rpm_vs_plots, emission_plots
+from Reporting import export_results_to_csv,rpm_vs_plots, emission_plots, to_legacy
 from Engine_Database import Engines, EngineDB, EngineSpec
 pd.set_option('display.float_format', '{:.3f}'.format)
 # INPUT CHECK
@@ -25,7 +24,7 @@ def _input_integer(prompt, lowerlimit=None, uppperlimit=None):
             return value
         except:
             print("Invalid integer. Try again.")
-# ENGINE SELECTION
+#%% ENGINE SELECTION
 while True:
     print("Choose engine:")
     print("1. Use preloaded engine")
@@ -69,125 +68,100 @@ while True:
         sys.exit(0)
     else:
         print("Invalid choice.")
-#%% Test Selection
+#%% TEST SELECTION
+# SPEC CHECK
+if 'spec' not in globals() or getattr(spec, 've_table', None) is None:
+    print("❌ Engine spec or VE table missing. Build 'spec' and attach spec.ve_table before running tests.")
+    sys.exit(1)
 while True:
     print('Please select the test you want to execute:')
-    print("1 - Single run")
-    print("2 - Wide Open Throttle")
-    print("3 - Full sweep")
+    print("1 - Single run (one RPM, sweep throttle)")
+    print("2 - Wide Open Throttle (1.0 throttle, sweep RPM)")
+    print("3 - Full sweep (RPM x Throttle grid)")
     print("4 - Exit")
-    testMode = input("Enter your test choice(1, 2, 3, 4): ")
+    testMode = input("Enter your test choice (1, 2, 3, 4): ").strip()
     if testMode == '1':
-        print("You have selected Single run")
+        print("You selected: Single run")
         while True:
             try:
-                print('Enter the RPM:')
-                rpm = int(input())
-                if rpm < 800 or rpm > 15000: 
-                    print('RPM value must be between 800 RPM and 15000 RPM. Please enter the RPM:')
+                rpm = int(input('Enter the RPM: '))
+                if rpm < 800 or rpm > 15000:
+                    print('RPM must be between 800 and 15000.')
                     continue
                 break
             except:
-                print('RPM value must be between 800 RPM and 15000 RPM.')
-        if ve_mode == 'table':
-            results = SingleRun(rpm, displacement, ve_mode, ve_table=ve_vs_rpm)
-        else:
-            results = SingleRun(rpm, displacement, ve_mode, constant_ve=ve)
-            df = pd.DataFrame(results, columns=['Engine Speed (RPM)', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower', 'Air Flow(g/s)', 'Fuel Flow(g/s)', 'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
-            export_results_to_csv(df)
-            sys.exit()
+                print('Invalid input. RPM must be an integer.')
+        df_singleRun = SingleRun(spec=spec, rpm=rpm) 
+        df = to_legacy(df_singleRun)
+        export_results_to_csv(df)
+        rpm_vs_plots(df)
+        ans = input('Would you like to plot emissions (Yes/No): ').strip().lower()
+        if ans == 'yes':
+            emission_plots(df)
+        sys.exit()
+
     elif testMode == '2':
-        print("You selected Wide Open Throttle")
-        try:
-            spec = Engines.get("Nissan_VQ35DE__NA_3.5L_V6_350Z")
-        except Exception as e:
-            print(f"Engine spec not found: {e}")
-            sys.exit(1)
-        # RPM range input
+        print("You selected: Wide Open Throttle")
         while True:
             try:
-                print('Enter minimum RPM:')
-                rpmMin = int(input())
+                rpmMin = int(input('Enter minimum RPM: '))
                 if rpmMin < 800:
-                    print('Minimum RPM must be at least 800 RPM. Please enter minimum RPM:')
+                    print('Minimum RPM must be at least 800.')
                     continue
                 break
             except:
-                print('Invalid input. Minimum RPM must be at least 800 RPM.')
+                print('Invalid input. Enter an integer RPM.')
         while True:
             try:
-                print('Enter maximum RPM:')
-                rpmMax = int(input())
+                rpmMax = int(input('Enter maximum RPM: '))
                 if rpmMax > 15000:
-                    print('Maximum RPM cannot be higher than 15000 RPM. Please enter maximum RPM:')
+                    print('Maximum RPM cannot exceed 15000.')
                     continue
                 if rpmMax <= rpmMin:
                     print('Maximum RPM must be greater than minimum RPM.')
                     continue
                 break
             except:
-                print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
-        df_wot = WideOpenThrottle(spec=spec, RPM_min=rpmMin, RPM_max=rpmMax, step=100, ve_mode=ve_mode, constant_ve=ve if ve_mode == 'constant' else 0.98, ve_table=ve_vs_rpm if ve_mode == 'table' else None, analyze_points=[], combustion_kwargs=None)
-        df = pd.DataFrame({
-            'Engine Speed (RPM)': df_wot['RPM'],
-            'Throttle':           df_wot['Throttle'],
-            'Torque (Nm)':        df_wot['Torque_Nm'],
-            'Power (kW)':         df_wot['Power_kW'],
-            'Horsepower':         df_wot['Power_kW'] * 1.34102209,     # kW -> HP
-            'Air Flow(g/s)':      df_wot['mdot_air_kg_s']  * 1000.0,   # kg/s -> g/s
-            'Fuel Flow(g/s)':     df_wot['mdot_fuel_kg_s'] * 1000.0,   # kg/s -> g/s
-            'CO2(g/s)':           df_wot['CO2_gps'],
-            'CO(g/s)':            df_wot['CO_gps'],
-            'NOx(g/s)':           df_wot['NOx_gps'],
-            'HC(g/s)':            df_wot['HC_gps'],
-        })
+                print('Invalid input. Enter an integer RPM.')
+        df_wot = WideOpenThrottle(spec=spec, RPM_min=rpmMin, RPM_max=rpmMax, step=100)
+        df = to_legacy(df_wot)
         export_results_to_csv(df)
         rpm_vs_plots(df)
-        emissionplot = input('Would you like to plot emissions(Yes/No):')
-        if emissionplot.lower() == 'yes':
+        ans = input('Would you like to plot emissions (Yes/No): ').strip().lower()
+        if ans == 'yes':
             emission_plots(df)
-            sys.exit()
-        elif emissionplot.lower() == 'no':
-            sys.exit()
-        else:
-            print('Please type Yes or No:')
-            elif emissionplot.lower() == 'no':
-                sys.exit()
-        else:
-            print('Please type Yes or No:')
-            continue
+        sys.exit()
     elif testMode == '3':
-        print("You selected Full sweep")
+        print("You selected: Full sweep")
         while True:
             try:
-                print('Enter minimum RPM:')
-                rpmMin = int(input())
-                if rpmMin < 800: 
-                    print('Minimum RPM must be at least 800 RPM. Please enter minimum RPM:')
+                rpmMin = int(input('Enter minimum RPM: '))
+                if rpmMin < 800:
+                    print('Minimum RPM must be at least 800.')
                     continue
                 break
             except:
-                print('Invalid input. Minimum RPM must be at least 800 RPM.')
+                print('Invalid input. Enter an integer RPM.')
         while True:
             try:
-                print('Enter maximum RPM:')
-                rpmMax = int(input())
-                if rpmMax > 15000: 
-                    print('Maximum RPM cannot be higher than 15000 RPM. Please enter maximum RPM:')
+                rpmMax = int(input('Enter maximum RPM: '))
+                if rpmMax > 15000:
+                    print('Maximum RPM cannot exceed 15000.')
+                    continue
+                if rpmMax <= rpmMin:
+                    print('Maximum RPM must be greater than minimum RPM.')
                     continue
                 break
             except:
-                print('Invalid input. Maximum RPM cannot be higher than 15000 RPM.')
-        if ve_mode == 'table':
-            results = FullRangeSweep(rpmMin, rpmMax, displacement, ve_mode, ve_table=ve_vs_rpm)
-        else:
-            results = FullRangeSweep(rpmMin, rpmMax, displacement, ve_mode, constant_ve=ve)
-        df = pd.DataFrame(results, columns=['Engine Speed (RPM)', 'Throttle', 'Torque (Nm)', 'Power (kW)', 'Horsepower', 'Air Flow(g/s)', 'Fuel Flow(g/s)', 'CO2(g/s)', 'CO(g/s)', 'NOx(g/s)', 'HC(g/s)'])
+                print('Invalid input. Enter an integer RPM.')
+        df_full = FullRangeSweep(spec=spec, RPM_min=rpmMin, RPM_max=rpmMax, step=100)
+        df = to_legacy(df_full)
         export_results_to_csv(df)
-        rpm_vs_plots(df)
+        rpm_vs_plots(df)   # works with multiple throttles too
         sys.exit()
     elif testMode == '4':
         print("Exiting program.")
         sys.exit()
+
     else:
-        print("Invalid input. Please enter 1, 2, or 3.")
+        print("Invalid input. Please enter 1, 2, 3, or 4.")

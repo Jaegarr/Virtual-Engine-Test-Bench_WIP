@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import math, os
 from scipy.interpolate import RegularGridInterpolator
 
 # Simplified target lambda map by RPM (could be replaced by a CSV/config)
@@ -23,38 +22,58 @@ def get_target_AFR(rpm, AFR=14.7):
     target_lambda = float(np.interp(rpm, lambda_target_map['RPM'], lambda_target_map['Lambda']))
     target_AFR = AFR * target_lambda
     return target_AFR
-def get_ve_from_table(rpm, throttle, ve_table):
-    '''
-    Interpolate VE (Volumetric Efficiency) values from a VE table 
-    for multiple throttle positions at a given RPM.
+def get_ve_from_table(rpm, throttle, ve_table, idle_kpa: float = 20.0, wot_kpa: float = 100.0):
+    """
+    Interpolate VE from a VE table (rows=MAP [kPa], cols=RPM).
+    - ve_table can be a pandas.DataFrame or a CSV path.
+    - throttle can be a scalar in [0..1] or an iterable of such.
+    - VE in the table may be % (e.g., 95) or fraction (0.95); auto-detected.
+    Returns float if throttle is scalar, else list[float].
+    """
+    import numpy as np
+    import pandas as pd
+    from scipy.interpolate import RegularGridInterpolator
 
-    Parameters:
-        rpm (float): Engine speed in revolutions per minute.
-        throttle (list of float): List of throttle positions (0.0-1.0).
-        ve_table (pandas.DataFrame): VE table with manifold pressure as index and RPM as columns.
-
-    Returns:
-        list of float: Interpolated VE values (as decimal, e.g., 0.85) for each throttle position.
-
-    Notes:
-        - Converts throttle to manifold absolute pressure using a simple map (idle=20 kPa, WOT=100 kPa).
-        - Uses RegularGridInterpolator to interpolate VE for given (MAP, RPM).
-        - Returns VE values divided by 100 since CSV usually stores percentages.
-    '''
-    ve_results = []
-    map_values = ve_table.index.to_numpy(dtype=float)      # MAP breakpoints (kPa)
-    rpm_values = ve_table.columns.to_numpy(dtype=float)    # RPM breakpoints
-    ve_values = ve_table.to_numpy() / 100                  # VE as decimal
-    interpolator = RegularGridInterpolator((map_values, rpm_values), ve_values, bounds_error=False, fill_value=None)
-    if isinstance(throttle, (list, tuple, np.ndarray)):
-        ve_list = []
-        for t in throttle:
-            map_kpa = 20 + t * (100 - 20)
-            ve = interpolator([[map_kpa, rpm]])[0]
-            ve_list.append(ve)
-        return ve_list
+    # 1) Load/normalize table
+    if isinstance(ve_table, pd.DataFrame):
+        df = ve_table.copy()
     else:
-        # single value
-        map_kpa = 20 + throttle * (100 - 20)
-        ve = interpolator([[map_kpa, rpm]])[0]
-        return ve
+        df = pd.read_csv(str(ve_table), index_col=0)
+
+    # enforce numeric axes (MAP kPa x RPM) and sort
+    df.index   = pd.to_numeric(df.index, errors='raise')
+    df.columns = pd.to_numeric(df.columns, errors='raise')
+    df = df.sort_index().sort_index(axis=1)
+
+    map_values = df.index.to_numpy(dtype=float)   # kPa
+    rpm_values = df.columns.to_numpy(dtype=float) # RPM
+    ve_values  = df.to_numpy(dtype=float)
+
+    # 2) Auto-detect % vs fraction
+    if np.nanmax(ve_values) > 1.5:  # likely percentages (e.g., 95)
+        ve_values = ve_values / 100.0
+
+    # 3) Interpolator (allow mild extrapolation)
+    interp = RegularGridInterpolator(
+        (map_values, rpm_values), ve_values,
+        bounds_error=False, fill_value=None
+    )
+
+    # 4) Helpers
+    def throttle_to_map(t):
+        return idle_kpa + float(t) * (wot_kpa - idle_kpa)
+
+    def interp_one(t):
+        mk = throttle_to_map(t)
+        val = interp([[mk, float(rpm)]])[0]
+        if np.isnan(val):  # clip if we fell outside both axes
+            mkc = np.clip(mk, map_values.min(), map_values.max())
+            rpc = np.clip(float(rpm), rpm_values.min(), rpm_values.max())
+            val = interp([[mkc, rpc]])[0]
+        return float(val)
+
+    # 5) Vector-friendly return
+    if isinstance(throttle, (list, tuple, np.ndarray)):
+        return [interp_one(t) for t in throttle]
+    else:
+        return interp_one(throttle)
