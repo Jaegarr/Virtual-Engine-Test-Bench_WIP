@@ -28,7 +28,7 @@ def RunPoint(spec: EngineSpec, rpm: int, throttle: float, analyze: bool = False,
     AFR = cal.get_target_AFR(rpm)
     CO2_gps, CO_gps, NOx_gps, HC_gps = estimate_Emissions(mdot_fuel, AFR, 0.98)
     PkW = max(res["power_kw"], 1e-9)
-    BSFC_g_per_kWh = (mdot_fuel * 3600.0) / PkW
+    BSFC_g_per_kWh = (mdot_fuel * 3600.0 * 1000) / PkW
     to_gkWh = lambda gps: (gps * 3600.0) / PkW
     return {
         "RPM": rpm, "Throttle": throttle, "VE": ve,

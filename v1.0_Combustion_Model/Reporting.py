@@ -46,18 +46,31 @@ def export_results_to_csv(data, default_folder="Results"):
 def to_legacy(df: pd.DataFrame) -> pd.DataFrame:
     """Map RunPoint/Mode outputs to legacy Reporting column names."""
     return pd.DataFrame({
-        'Engine Speed (RPM)': df['RPM'],
-        'Throttle':           df['Throttle'],
-        'Torque (Nm)':        df['Torque_Nm'],
-        'Power (kW)':         df['Power_kW'],
-        'Horsepower':         df['Power_kW'] * 1.34102209,     # kW -> HP
-        'Air Flow(g/s)':      df['mdot_air_kg_s']  * 1000.0,   # kg/s -> g/s
-        'Fuel Flow(g/s)':     df['mdot_fuel_kg_s'] * 1000.0,   # kg/s -> g/s
-        'CO2(g/s)':           df['CO2_gps'],
-        'CO(g/s)':            df['CO_gps'],
-        'NOx(g/s)':           df['NOx_gps'],
-        'HC(g/s)':            df['HC_gps'],
-    })
+    'Engine Speed (RPM)': df['RPM'],
+    'Throttle':           df['Throttle'],
+    'Torque (Nm)':        df['Torque_Nm'],
+    'Power (kW)':         df['Power_kW'],
+    'Horsepower':         df['Power_kW'] * 1.34102209,   # kW -> HP
+    # mass flows
+    'Air Flow(g/s)':      df['mdot_air_kg_s']  * 1000.0,
+    'Fuel Flow(g/s)':     df['mdot_fuel_kg_s'] * 1000.0,
+    # pressures/efficiencies
+    'IMEP (bar)':         df['IMEP_bar'],
+    'BMEP (bar)':         df['BMEP_bar'],
+    'PMEP (bar)':         df['PMEP_bar'],
+    'FMEP (bar)':         df['FMEP_bar'],
+    'BSFC (g/kWh)':       df['BSFC_g_per_kWh'],
+    # emissions (instantaneous rates)
+    'CO2(g/s)':           df['CO2_gps'],
+    'CO(g/s)':            df['CO_gps'],
+    'NOx(g/s)':           df['NOx_gps'],
+    'HC(g/s)':            df['HC_gps'],
+    # emissions intensities
+    'CO2 (g/kWh)':        df['CO2_g_kWh'],
+    'CO (g/kWh)':         df['CO_g_kWh'],
+    'NOx (g/kWh)':        df['NOx_g_kWh'],
+    'HC (g/kWh)':         df['HC_g_kWh'],
+}).round(3)
 def rpm_vs_plots(df):
     unique_throttle = np.unique(df['Throttle'])
     if (len(unique_throttle) == 1):  # WOT case

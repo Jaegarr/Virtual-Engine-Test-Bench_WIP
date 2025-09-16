@@ -4,7 +4,6 @@ import pandas as pd
 from dataclasses import dataclass
 from typing import Dict, Optional, List, Union
 def load_ve_table(source) -> pd.DataFrame:
-    """Accept a path or DataFrame; return a clean numeric VE table (MAP kPa x RPM)."""
     if isinstance(source, pd.DataFrame):
         df = source.copy()
     else:
@@ -44,4 +43,3 @@ class EngineDB:
         return sorted(self.db.keys())
 Engines = EngineDB()
 Engines.register("Nissan_VQ35DE_NA_3.5L_V6_350Z", EngineSpec(n_cylinder = 6, bore_m = 0.0955, stroke_m = 0.0814, conrod_m = 0.1442, compression_ratio = 10.3,ve_table=r'C:\Users\berke\OneDrive\Masaüstü\GitHub\Virtual-Engine-Test-Bench\v1.0_Combustion_Model\Nissan_350Z_VE.csv'))
-print(Engines)
