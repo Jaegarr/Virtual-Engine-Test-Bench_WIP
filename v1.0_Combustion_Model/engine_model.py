@@ -80,7 +80,7 @@ def combustion_Wiebe( spec: EngineSpec,rpm , throttle, ve, # Inputs
         mfb = 1.0 - np.exp(-a * x**(m+1))
         dmfb_dtheta = a * (m+1) * x**m * np.exp(-a * x**(m+1)) / delta
         dQ_chem = Q_tot * dmfb_dtheta * dtheta
-        dU = dQ_chem - P_current * (V[i+1] - V[i])  # dU = dQ - dW
+        dU = dQ_chem * 0.9 - P_current * (V[i+1] - V[i])  # dU = dQ - dW
         cv_loc = cv_mix(T_current, mfb)
         dT_combustion = dU / (m_trapped * cv_loc)
         V_current = V[i+1]
