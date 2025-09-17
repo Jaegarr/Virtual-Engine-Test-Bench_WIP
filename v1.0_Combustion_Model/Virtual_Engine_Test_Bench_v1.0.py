@@ -74,14 +74,14 @@ if 'spec' not in globals() or getattr(spec, 've_table', None) is None:
     print("❌ Engine spec or VE table missing. Build 'spec' and attach spec.ve_table before running tests.")
     sys.exit(1)
 while True:
-    print('Please select the test you want to execute:')
+    print('\nPlease select the test you want to execute:')
     print("1 - Single run (one RPM, sweep throttle)")
     print("2 - Wide Open Throttle (1.0 throttle, sweep RPM)")
     print("3 - Full sweep (RPM x Throttle grid)")
     print("4 - Exit")
     testMode = input("Enter your test choice (1, 2, 3, 4): ").strip()
     if testMode == '1':
-        print("You selected: Single run")
+        print("\nYou selected: Single run")
         while True:
             try:
                 rpm = int(input('Enter the RPM: '))
@@ -101,7 +101,7 @@ while True:
         sys.exit()
 
     elif testMode == '2':
-        print("You selected: Wide Open Throttle")
+        print("\nYou selected: Wide Open Throttle")
         while True:
             try:
                 rpmMin = int(input('Enter minimum RPM: '))
@@ -127,7 +127,7 @@ while True:
         df = to_legacy(df_wot)
         export_results_to_csv(df)
         rpm_vs_plots(df)
-        ans = input('Would you like to plot emissions (Yes/No): ').strip().lower()
+        ans = input('\nWould you like to plot emissions (Yes/No): ').strip().lower()
         if ans == 'yes':
             emission_plots(df)
         sys.exit()

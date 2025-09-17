@@ -16,6 +16,13 @@ def RunPoint(spec: EngineSpec, rpm: int, throttle: float, analyze: bool = False,
         raise TypeError(f"spec.ve_table must be a pandas DataFrame, got {type(table)}")
     ve_val = cal.get_ve_from_table(rpm, throttle, table)
     ve = float(np.asarray(ve_val).ravel()[0])
+    def ve_corr(r):
+    # anchors: (rpm, scale)
+        anchors = [(1000, 0.90), (2000, 0.95), (4000, 1.00), (5000,1), (5500, 0.98), (6000, 0.95), (6500,0.92), (7000, 0.90)]
+        xs, ys = zip(*anchors)
+        return np.interp(r, xs, ys, left=ys[0], right=ys[-1])
+    ve *= ve_corr(rpm)
+    ve = float(np.clip(ve, 0.5, 1.3))
     # COMBUSTION
     res = combustion_Wiebe(spec = spec, rpm = rpm, throttle = throttle, ve = ve, plot = False, return_dic = True)
     if not isinstance(res, dict):

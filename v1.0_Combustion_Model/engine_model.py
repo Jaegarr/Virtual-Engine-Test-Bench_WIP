@@ -155,8 +155,8 @@ def combustion_Wiebe( spec: EngineSpec,rpm , throttle, ve, # Inputs
     W_cyl = np.trapezoid(P_pa[mask], V_m3[mask])
     imep_gross = W_cyl / V_displacement
     mean_piston = 2 * spec.stroke_m * rpm / 60
-    fmep = (0.6 + 0.000431 * mean_piston + 0.004475 * (mean_piston) ** 2) * 1e5
-    pmep = (0.03 + 0.00001 * rpm) * 1e5
+    fmep = (0.6 + 0.00050 * mean_piston + 0.00550 * (mean_piston) ** 2) * 1e5
+    pmep = (0.03 + 0.000035 * rpm) * 1e5 
     bmep = imep_gross - fmep - pmep
     Vd_total = V_displacement * spec.n_cylinder
     Torque_Nm = bmep * Vd_total / (4*np.pi)      # 4π for 4-stroke

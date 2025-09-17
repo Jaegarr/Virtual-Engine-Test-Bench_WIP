@@ -24,12 +24,12 @@ def export_results_to_csv(data, default_folder="Results"):
     Returns:
         None
     """
-    print("📄 Enter a filename to save your results (without .csv):")
+    print("\n📄 Enter a filename to save your results (without .csv):")
     file = input().strip()
     file = re.sub(r'[\\/:"*?<>|]+', "_", file) if file else "results" # Replace invalid filename characters (\/:"*?<>|) with underscores
     now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"{file}_{now}.csv"
-    print(f"📁 Enter folder path to save the file (leave empty to use default folder: '{default_folder}' inside the project):")
+    print(f"\n📁 Enter folder path to save the file (leave empty to use default folder: '{default_folder}' inside the project):")
     folder = input().strip()
     if folder:
         folder = re.sub(r'[\\/:"*?<>|]+', "_", folder)
