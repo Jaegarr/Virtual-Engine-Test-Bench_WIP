@@ -46,30 +46,33 @@ def export_results_to_csv(data, default_folder="Results"):
 def to_legacy(df: pd.DataFrame) -> pd.DataFrame:
     """Map RunPoint/Mode outputs to legacy Reporting column names."""
     return pd.DataFrame({
-    'Engine Speed (RPM)': df['RPM'],
+    'Engine Speed(RPM)': df['RPM'],
     'Throttle':           df['Throttle'],
-    'Torque (Nm)':        df['Torque_Nm'],
-    'Power (kW)':         df['Power_kW'],
+    'Torque(Nm)':        df['Torque_Nm'],
+    'Power(kW)':         df['Power_kW'],
     'Horsepower':         df['Power_kW'] * 1.34102209,   # kW -> HP
     # mass flows
     'Air Flow(g/s)':      df['mdot_air_kg_s']  * 1000.0,
     'Fuel Flow(g/s)':     df['mdot_fuel_kg_s'] * 1000.0,
     # pressures/efficiencies
-    'IMEP (bar)':         df['IMEP_bar'],
-    'BMEP (bar)':         df['BMEP_bar'],
-    'PMEP (bar)':         df['PMEP_bar'],
-    'FMEP (bar)':         df['FMEP_bar'],
-    'BSFC (g/kWh)':       df['BSFC_g_per_kWh'],
+    'IMEP(bar)':         df['IMEP_bar'],
+    'BMEP(bar)':         df['BMEP_bar'],
+    'PMEP(bar)':         df['PMEP_bar'],
+    'FMEP(bar)':         df['FMEP_bar'],
+    'BSFC(g/kWh)':       df['BSFC_g_per_kWh'],
     # emissions (instantaneous rates)
     'CO2(g/s)':           df['CO2_gps'],
     'CO(g/s)':            df['CO_gps'],
     'NOx(g/s)':           df['NOx_gps'],
     'HC(g/s)':            df['HC_gps'],
     # emissions intensities
-    'CO2 (g/kWh)':        df['CO2_g_kWh'],
-    'CO (g/kWh)':         df['CO_g_kWh'],
-    'NOx (g/kWh)':        df['NOx_g_kWh'],
-    'HC (g/kWh)':         df['HC_g_kWh'],
+    'CO2(g/kWh)':        df['CO2_g_kWh'],
+    'CO(g/kWh)':         df['CO_g_kWh'],
+    'NOx(g/kWh)':        df['NOx_g_kWh'],
+    'HC(g/kWh)':         df['HC_g_kWh'],
+    # In-cylinder measurements
+    'Pmax(bar)':          df['Pmax_bar'],
+    'Tmax(K)':            df['Tmax_K'],
 }).round(3)
 def rpm_vs_plots(df):
     unique_throttle = np.unique(df['Throttle'])
@@ -77,13 +80,13 @@ def rpm_vs_plots(df):
         fig, ax1 = plt.subplots()
         plt.grid(True)
         ax1.set_ylabel('Power (kW)')
-        ax1.plot(df['Engine Speed (RPM)'], df['Power (kW)'], label = 'Power', color = 'red')
+        ax1.plot(df['Engine Speed(RPM)'], df['Power(kW)'], label = 'Power', color = 'red')
         ax1.set_ylim(0, 240)
         ax1.set_yticks(np.arange(0, 240, 20))
         ax2 = ax1.twinx()
-        ax2.set_xlabel('Engine Speed (RPM)')
+        ax2.set_xlabel('Engine Speed(RPM)')
         ax2.set_ylabel('Torque (Nm)')
-        ax2.plot(df['Engine Speed (RPM)'], df['Torque (Nm)'], label = 'Torque', color = 'blue')
+        ax2.plot(df['Engine Speed(RPM)'], df['Torque(Nm)'], label = 'Torque', color = 'blue')
         ax2.set_ylim(0, 600)
         ax2.set_yticks(np.arange(0,600,50))
         ax1.set_title('Torque & Power Curves — WOT')
@@ -119,8 +122,8 @@ def rpm_vs_plots(df):
             sub = df[np.isclose(df['Throttle'].astype(float), throttle, atol=1e-3)].copy()
             if sub.empty:
                 continue
-            sub.sort_values('Engine Speed (RPM)', inplace=True)
-            plt.plot(sub['Engine Speed (RPM)'], sub['Torque (Nm)'], label=f'Throttle {throttle:.2f}')
+            sub.sort_values('Engine Speed(RPM)', inplace=True)
+            plt.plot(sub['Engine Speed(RPM)'], sub['Torque(Nm)'], label=f'Throttle {throttle:.2f}')
         plt.title('Torque vs RPM — Full Sweep')
         plt.xlabel('Engine Speed (RPM)')
         plt.ylabel('Torque (Nm)')
@@ -143,15 +146,15 @@ def rpm_vs_plots(df):
         plt.tight_layout()
         plt.show()
 def emission_plots(df):
-    fig = plt.subplot()
-    
-    fig.set_xlabel('Engine Speed (RPM)')
-    fig.set_ylabel('Emissions (g/s)')
-    fig.plot(df['Engine Speed (RPM)'], df['CO2(g/s)'], color='magenta', label='CO2')
-    fig.plot(df['Engine Speed (RPM)'], df['CO(g/s)'], color='tab:red', label='CO')
-    fig.plot(df['Engine Speed (RPM)'], df['NOx(g/s)'], color='tab:blue', label='NOx')
-    fig.plot(df['Engine Speed (RPM)'], df['HC(g/s)'], color='tab:green', label='HC')
+    fig,ax1 = plt.subplots()
+    ax1.plot(df['Engine Speed(RPM)'], df['CO2(g/kWh)'], color='magenta', label='CO2')    
+    ax1.set_xlabel('Engine Speed (RPM)')
+    ax1.set_ylabel('CO2 Emissions (g/kWh)')
+    ax2 = ax1.twinx()
+    ax2.plot(df['Engine Speed(RPM)'], df['CO(g/kWh)'], color='tab:red', label='CO')
+    ax2.plot(df['Engine Speed(RPM)'], df['NOx(g/kWh)'], color='tab:blue', label='NOx')
+    ax2.plot(df['Engine Speed(RPM)'], df['HC(g/kWh)'], color='tab:green', label='HC')
+    ax2.set_ylabel('CO-NOx-HC Emissions (g/kWh)')
     fig.legend()
     plt.title('Emissions')
-    plt.yscale("log")
     plt.show()

@@ -3,7 +3,7 @@ import re
 import pandas as pd
 from Test_Modes import FullRangeSweep, WideOpenThrottle, SingleRun
 from Reporting import export_results_to_csv,rpm_vs_plots, emission_plots, to_legacy
-from Engine_Database import Engines, EngineDB, EngineSpec
+from Engine_Database import Engines, EngineSpec
 pd.set_option('display.float_format', '{:.3f}'.format)
 # INPUT CHECK
 def _input_float(prompt, lowerlimit=None, upperlimit=None):
