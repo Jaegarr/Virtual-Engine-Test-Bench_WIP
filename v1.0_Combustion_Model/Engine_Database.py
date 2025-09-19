@@ -11,7 +11,6 @@ def load_ve_table(source) -> pd.DataFrame:
     # headers must be numeric: rows=MAP[kPa], cols=RPM
     df.index   = pd.to_numeric(df.index, errors='raise')
     df.columns = pd.to_numeric(df.columns, errors='raise')
-    # sort for monotonic grids
     df = df.sort_index().sort_index(axis=1)
     return df
 @dataclass
@@ -38,7 +37,7 @@ class EngineDB:
     def get(self, name: str) -> EngineSpec:
         if name not in self.db:
             raise KeyError(f"Engine '{name}' not found. Available: {list(self.db.keys())}")
-        return self.db[name]  # <-- IMPORTANT: return it!
+        return self.db[name]
     def list(self) -> List[str]:
         return sorted(self.db.keys())
 Engines = EngineDB()

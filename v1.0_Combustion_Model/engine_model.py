@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import Calibration as cal
-from scipy.interpolate import RegularGridInterpolator
 from Engine_Database import EngineSpec
 def combustion_Wiebe( spec: EngineSpec,rpm , throttle, ve, # Inputs
                      LHV = 44E6, gas_constant = 287, T_ivc = 330, cv_J = 750, # Fuel / Thermodynamics 
