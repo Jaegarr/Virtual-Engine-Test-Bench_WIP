@@ -1,9 +1,9 @@
 import sys
 import re
 import pandas as pd
+from Engine_Database import Engines, EngineSpec
 from Test_Modes import FullRangeSweep, WideOpenThrottle, SingleRun, RunPoint
 from Reporting import export_results_to_csv,rpm_vs_plots, emission_plots, to_legacy
-from Engine_Database import Engines, EngineSpec
 pd.set_option('display.float_format', '{:.3f}'.format)
 # INPUT CHECK
 def _input_float(prompt, lowerlimit=None, upperlimit=None):
@@ -39,7 +39,6 @@ while True:
         index = _input_integer("Select engine by number: ", 1, len(names))
         engine_name = names[index-1]
         spec = Engines.get(engine_name)
-        # If this preloaded engine has no VE table attached, ask for one
         break
     elif selection == '2':
         print("\nEnter custom engine geometry:")
