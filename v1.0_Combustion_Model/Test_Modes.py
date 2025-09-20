@@ -14,16 +14,7 @@ def RunPoint(spec: EngineSpec, rpm: int, throttle: float, analyze: bool = False,
     table = getattr(spec, "ve_table", None)
     if not isinstance(table, pd.DataFrame):
         raise TypeError(f"spec.ve_table must be a pandas DataFrame, got {type(table)}")
-    ve_val = cal.get_ve_from_table(rpm, throttle, table)
-    ve = float(np.asarray(ve_val).ravel()[0])
-    #VE correction
-    def ve_corr(r):
-    # anchors: (rpm, scale)
-        anchors = [(1000, 0.90), (2000, 0.95), (4000, 1.00), (5000,1), (5500, 0.99), (6000, 0.95), (6500,0.92), (7000, 0.90)]
-        xs, ys = zip(*anchors)
-        return np.interp(r, xs, ys, left=ys[0], right=ys[-1])
-    ve *= ve_corr(rpm)
-    ve = float(np.clip(ve, 0.5, 1.3))
+    ve = float(cal.get_ve_from_table(rpm, throttle, table))
     # COMBUSTION
     if analyze == True:
         res = combustion_Wiebe(spec = spec, rpm = rpm, throttle = throttle, ve = ve, plot = True, return_dic = False)
@@ -68,7 +59,7 @@ def RunPoint(spec: EngineSpec, rpm: int, throttle: float, analyze: bool = False,
         "CA90_deg": res["ca90_deg"],
         "Pmax_bar": res["pmax_bar"], 
         "Tmax_K":  res["tmax_k"],
-    }
+        }
 def SingleRun(spec, rpm: int, throttles: Optional[Iterable[float]] = None, analyze_throttles: Optional[Iterable[float]] = None, combustion_kwargs: Optional[dict] = None) -> pd.DataFrame:
     """
     For a single engine speed, sweep throttle (e.g., 0.1..1.0) using VE from spec.ve_table.
