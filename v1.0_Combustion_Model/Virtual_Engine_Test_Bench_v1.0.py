@@ -1,7 +1,7 @@
 import sys
 import re
 import pandas as pd
-from Test_Modes import FullRangeSweep, WideOpenThrottle, SingleRun
+from Test_Modes import FullRangeSweep, WideOpenThrottle, SingleRun, RunPoint
 from Reporting import export_results_to_csv,rpm_vs_plots, emission_plots, to_legacy
 from Engine_Database import Engines, EngineSpec
 pd.set_option('display.float_format', '{:.3f}'.format)
@@ -98,6 +98,10 @@ while True:
         ans = input('Would you like to plot emissions (Yes/No): ').strip().lower()
         if ans == 'yes':
             emission_plots(df)
+        if combustion_analysis == 'yes':
+            RPMpoint = float(input('\n Choose RPM point to analyze:'))
+            Throttlepoint = float(input('\n Choose throttle point to analyze:'))
+            RunPoint(spec=spec, rpm = RPMpoint, throttle= Throttlepoint, analyze = True)
         sys.exit()
 
     elif testMode == '2':
@@ -130,6 +134,10 @@ while True:
         ans = input('\nWould you like to plot emissions (Yes/No): ').strip().lower()
         if ans == 'yes':
             emission_plots(df)
+        combustion_analysis = input('\nWould you like to analyze the combustion (Yes/No): ').strip().lower()
+        if combustion_analysis == 'yes':
+            RPMpoint = float(input('\n Choose RPM point to analyze(throttle = 1):'))
+            RunPoint(spec=spec, rpm = RPMpoint, throttle= 1, analyze = True)
         sys.exit()
     elif testMode == '3':
         print("You selected: Full sweep")
@@ -158,6 +166,11 @@ while True:
         df = to_legacy(df_full)
         export_results_to_csv(df)
         rpm_vs_plots(df)   # works with multiple throttles too
+        combustion_analysis = input('\nWould you like to analyze the combustion (Yes/No): ').strip().lower()
+        if combustion_analysis == 'yes':
+            RPMpoint = float(input('\n Choose RPM point to analyze:'))
+            Throttlepoint = float(input('\n Choose throttle point to analyze:'))
+            RunPoint(spec=spec, rpm = RPMpoint, throttle= Throttlepoint, analyze = True)
         sys.exit()
     elif testMode == '4':
         print("Exiting program.")

@@ -16,6 +16,7 @@ def RunPoint(spec: EngineSpec, rpm: int, throttle: float, analyze: bool = False,
         raise TypeError(f"spec.ve_table must be a pandas DataFrame, got {type(table)}")
     ve_val = cal.get_ve_from_table(rpm, throttle, table)
     ve = float(np.asarray(ve_val).ravel()[0])
+    #VE correction
     def ve_corr(r):
     # anchors: (rpm, scale)
         anchors = [(1000, 0.90), (2000, 0.95), (4000, 1.00), (5000,1), (5500, 0.99), (6000, 0.95), (6500,0.92), (7000, 0.90)]
@@ -24,20 +25,24 @@ def RunPoint(spec: EngineSpec, rpm: int, throttle: float, analyze: bool = False,
     ve *= ve_corr(rpm)
     ve = float(np.clip(ve, 0.5, 1.3))
     # COMBUSTION
-    res = combustion_Wiebe(spec = spec, rpm = rpm, throttle = throttle, ve = ve, plot = False, return_dic = True)
-    if not isinstance(res, dict):
-        raise RuntimeError("combustion_Wiebe did not return a dict. Ensure return_dic=True is honored.")
-    # --- per-cycle -> per-second (4-stroke) ---
-    cps = rpm / 120.0  # cycles per second per cylinder
-    mdot_air  = res["m_air_per_cycle"]  * cps * spec.n_cylinder  # kg/s
-    mdot_fuel = res["m_fuel_per_cycle"] * cps * spec.n_cylinder  # kg/s
-    # --- emissions & BSFC ---
-    AFR = cal.get_target_AFR(rpm)
-    CO2_gps, CO_gps, NOx_gps, HC_gps = estimate_Emissions(mdot_fuel, AFR, 0.98)
-    PkW = max(res["power_kw"], 1e-9)
-    BSFC_g_per_kWh = (mdot_fuel * 3600.0 * 1000) / PkW
-    to_gkWh = lambda gps: (gps * 3600.0) / PkW
-    return {
+    if analyze == True:
+        res = combustion_Wiebe(spec = spec, rpm = rpm, throttle = throttle, ve = ve, plot = True, return_dic = False)
+        return
+    else:
+        res = combustion_Wiebe(spec = spec, rpm = rpm, throttle = throttle, ve = ve, plot = False, return_dic = True)
+        if not isinstance(res, dict):
+            raise RuntimeError("combustion_Wiebe did not return a dict. Ensure return_dic=True is honored.")
+        # --- per-cycle -> per-second (4-stroke) ---
+        cps = rpm / 120.0  # cycles per second per cylinder
+        mdot_air  = res["m_air_per_cycle"]  * cps * spec.n_cylinder  # kg/s
+        mdot_fuel = res["m_fuel_per_cycle"] * cps * spec.n_cylinder  # kg/s
+        # --- emissions & BSFC ---
+        AFR = cal.get_target_AFR(rpm)
+        CO2_gps, CO_gps, NOx_gps, HC_gps = estimate_Emissions(mdot_fuel, AFR, 0.98)
+        PkW = max(res["power_kw"], 1e-9)
+        BSFC_g_per_kWh = (mdot_fuel * 3600.0 * 1000) / PkW
+        to_gkWh = lambda gps: (gps * 3600.0) / PkW
+        return {
         "RPM": rpm, 
         "Throttle": throttle, 
         "VE": ve,
@@ -89,12 +94,7 @@ def WideOpenThrottle(spec, RPM_min: int, RPM_max: int, step: int = 100, *, analy
     analyze_set = set(analyze_points or [])
     rows = []
     for r in range(int(RPM_min), int(RPM_max)+1, int(step)):
-        rows.append(
-            RunPoint(spec=spec,
-                     rpm=int(r),
-                     throttle=1.0,
-                     analyze=(r in analyze_set),
-                     combustion_kwargs=combustion_kwargs)
+        rows.append(RunPoint(spec=spec, rpm=int(r), throttle=1.0, analyze=(r in analyze_set), combustion_kwargs=combustion_kwargs)
         )
     return pd.DataFrame(rows).sort_values("RPM").reset_index(drop=True)
 def FullRangeSweep(spec, RPM_min: int, RPM_max: int, step: int = 100, throttles: Optional[Iterable[float]] = None, *, combustion_kwargs: Optional[dict] = None) -> pd.DataFrame:
