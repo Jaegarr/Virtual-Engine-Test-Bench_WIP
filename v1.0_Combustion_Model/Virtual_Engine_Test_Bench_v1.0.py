@@ -98,8 +98,8 @@ while True:
         if ans == 'yes':
             emission_plots(df)
         if combustion_analysis == 'yes':
-            RPMpoint = float(input('\n Choose RPM point to analyze:'))
-            Throttlepoint = float(input('\n Choose throttle point to analyze:'))
+            RPMpoint = float(input('\nChoose RPM point to analyze:'))
+            Throttlepoint = float(input('\nChoose throttle point to analyze:'))
             RunPoint(spec=spec, rpm = RPMpoint, throttle= Throttlepoint, analyze = True)
         sys.exit()
 
@@ -135,7 +135,7 @@ while True:
             emission_plots(df)
         combustion_analysis = input('\nWould you like to analyze the combustion (Yes/No): ').strip().lower()
         if combustion_analysis == 'yes':
-            RPMpoint = float(input('\n Choose RPM point to analyze(throttle = 1):'))
+            RPMpoint = float(input('\nChoose RPM point to analyze(throttle = 1):'))
             RunPoint(spec=spec, rpm = RPMpoint, throttle= 1, analyze = True)
         sys.exit()
     elif testMode == '3':
@@ -167,8 +167,8 @@ while True:
         rpm_vs_plots(df)   # works with multiple throttles too
         combustion_analysis = input('\nWould you like to analyze the combustion (Yes/No): ').strip().lower()
         if combustion_analysis == 'yes':
-            RPMpoint = float(input('\n Choose RPM point to analyze:'))
-            Throttlepoint = float(input('\n Choose throttle point to analyze:'))
+            RPMpoint = float(input('\nChoose RPM point to analyze:'))
+            Throttlepoint = float(input('\nChoose throttle point to analyze:'))
             RunPoint(spec=spec, rpm = RPMpoint, throttle= Throttlepoint, analyze = True)
         sys.exit()
     elif testMode == '4':
