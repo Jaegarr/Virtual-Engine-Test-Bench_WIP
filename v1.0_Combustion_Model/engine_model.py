@@ -57,7 +57,7 @@ def combustion_Wiebe( spec: EngineSpec,rpm , throttle, ve, # Inputs
     # TRAPPED MASS
     p_ivc = 20e3 + throttle * (100e3 - 20e3)  # Pa
     rho_ivc =  p_ivc / (gas_constant * T_ivc) # kg/m3
-    mAirpercycle = rho_ivc * V[i_ivc] * ve  # kg per cycle
+    mAirpercycle = rho_ivc * V_displacement * ve  # kg per cycle
     mAirpersec = mAirpercycle * spec.n_cylinder * rpm / 120 # All cylinders
     mFuelpercycle = mAirpercycle / cal.get_target_AFR(rpm) # kg per cycle
     mFuelpersec = mAirpersec / cal.get_target_AFR(rpm)
