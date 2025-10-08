@@ -42,9 +42,6 @@ def combustion_Wiebe( spec: EngineSpec,rpm , throttle, ve, # Inputs
         return soc_rad + x * delta
     ca10_rad = ca_at_mfb(0.10); ca50_rad = ca_at_mfb(0.50); ca90_rad = ca_at_mfb(0.90)
     ca10_deg, ca50_deg, ca90_deg = map(np.degrees, (ca10_rad, ca50_rad, ca90_rad))
-    idx10 = int(np.argmin(np.abs(crank_angle - ca10_rad)))
-    idx50 = int(np.argmin(np.abs(crank_angle - ca50_rad)))
-    idx90 = int(np.argmin(np.abs(crank_angle - ca90_rad)))
     # GEOMETRY
     V_displacement = np.pi * (spec.bore_m**2 / 4) * spec.stroke_m
     V_clearance = V_displacement / (spec.compression_ratio - 1)
