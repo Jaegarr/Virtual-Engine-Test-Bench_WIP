@@ -67,7 +67,6 @@ Fuels.register(
         gamma_u_func=gamma_H2
     ),
 )
-
 Fuels.register(
     "NH3",
     FuelSpec(
