@@ -67,6 +67,7 @@ while True:
         sys.exit(0)
     else:
         print("Invalid choice.")
+'''
 #%% FUEL SELECTION
 while True:
     print("Choose Fuel: ")
@@ -78,8 +79,7 @@ while True:
     print("6. Gasoline Ethanol Blend")
     print("7. Gasoline Methanol Blend")  
     print("8. Hydrogen Ammonia Blend")
-
-
+'''
 #%% TEST SELECTION
 # SPEC CHECK
 if 'spec' not in globals() or getattr(spec, 've_table', None) is None:

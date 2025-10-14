@@ -91,15 +91,6 @@ def combustion_Wiebe( spec: EngineSpec,
         return np.interp(T, T_knots, cv_b_knots)
     def cv_mix(T, mfb):
         return (1.0 - mfb) * cv_unburned(T) + mfb * cv_burned(T) # linear blend by mass-fraction-burned (0..1)
-    # CA10/50/90
-    def ca_at_mfb(y):
-        x = (-np.log(1.0 - y) / a)**(1.0 / (m + 1.0))
-        return soc_rad + x * delta
-    ca10_rad = ca_at_mfb(0.10); ca50_rad = ca_at_mfb(0.50); ca90_rad = ca_at_mfb(0.90)
-    ca10_deg, ca50_deg, ca90_deg = map(np.degrees, (ca10_rad, ca50_rad, ca90_rad))
-    idx10 = int(np.argmin(np.abs(crank_angle - ca10_rad)))
-    idx50 = int(np.argmin(np.abs(crank_angle - ca50_rad)))
-    idx90 = int(np.argmin(np.abs(crank_angle - ca90_rad)))
     # GEOMETRY
     V_displacement = np.pi * (spec.bore_m**2 / 4) * spec.stroke_m
     V_clearance = V_displacement / (spec.compression_ratio - 1)
@@ -156,6 +147,20 @@ def combustion_Wiebe( spec: EngineSpec,
     # Now set the burn window via SOC/EOC using this Δθ:
     soc_rad = np.deg2rad(-10.0)   # keep your current spark for now (will tune next)
     eoc_rad = soc_rad + Delta_theta_rad
+    # reindex burn window with the new SOC/EOC
+    i_soc = int(np.argmin(np.abs(crank_angle - soc_rad)))
+    i_eoc = int(np.argmin(np.abs(crank_angle - eoc_rad)))
+    delta = eoc_rad - soc_rad
+    if i_eoc <= i_soc:
+        i_eoc = min(i_soc + 3, len(crank_angle) - 2)  # ensure at least a few steps
+        delta = crank_angle[i_eoc] - crank_angle[i_soc]
+    def ca_at_mfb(y):
+        x = (-np.log(1.0 - y) / a)**(1.0 / (m + 1.0))
+        return soc_rad + x * delta
+    ca10_rad = ca_at_mfb(0.10)
+    ca50_rad = ca_at_mfb(0.50)
+    ca90_rad = ca_at_mfb(0.90)
+    ca10_deg, ca50_deg, ca90_deg = map(np.degrees, (ca10_rad, ca50_rad, ca90_rad))
     P_combustion, T_combustion, mfb_list = [], [], []
     for i in range(i_soc, i_eoc+1):
         theta = crank_angle[i]
@@ -292,6 +297,16 @@ def combustion_Wiebe( spec: EngineSpec,
         "ca90_deg": ca90_deg,
         "pmax_bar": np.nanmax(df['Pressure (bar)'].to_numpy()),
         "tmax_k":   np.nanmax(df['Temperature (K)'].to_numpy()),
+        "S_L_mps": float(S_L),
+        "S_T_mps": float(S_T),
+        "Delta_theta_deg": float(np.degrees(Delta_theta_rad)),
+        "soc_deg": float(np.degrees(soc_rad)),
+        "eoc_deg": float(np.degrees(eoc_rad)),
+        "phi": float(phi),
+        "k_mean": float(k_mean),
+        "ell_t_m": float(ell_t_m),
+        "T_u_K": float(T_u),
+        "p_u_bar": float(p_u / 1e5),
     }
         return out
 def estimate_Emissions(mDotFuel, AFR, eff):
