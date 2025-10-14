@@ -3,19 +3,64 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import Calibration as cal
 from Engine_Database import EngineSpec
-from Fuel_Database import FuelDB, FuelSpec, Fuels
+from Fuel_Database import FuelSpec, Fuels
+#%% FLAME SPEED
+def laminar_speed(
+    fuel: FuelSpec,
+    T_u_K: float,
+    p_u_Pa: float,
+    phi: float,
+    Sref_mps: float = None,
+    alpha_T: float = 2.0,     # T exponent (generic, tweak per fuel later)
+    beta_p: float = -0.25,    # p exponent (generic)
+    phi_peak: float = 1.1,    # where S_L peaks (gasoline-ish)
+    phi_width: float = 0.35   # width of quadratic around peak
+) -> float:
+    """
+    Very lightweight generic S_L correlation built around your DB’s S_L at 300K, 1 atm.
+    S_L ≈ S_L,300 * (T/300)^alpha * (p/1atm)^beta * phi-shape
+    """
+    S0 = fuel.S_L_300K_m_per_s if Sref_mps is None else Sref_mps
+    T_term = (T_u_K / 300.0)**alpha_T
+    p_term = (p_u_Pa / 101325.0)**beta_p
+    # simple parabola in phi around phi_peak: ~1 - ((phi-phi_peak)/width)^2
+    phi_shape = max(0.15, 1.0 - ((phi - phi_peak)/phi_width)**2)
+    return max(0.02, S0 * T_term * p_term * phi_shape)
+def turbulent_speed(
+    S_L: float,
+    k_u: float,
+    ell_t_m: float,
+    nu_u_m2s: float = 1.7e-5,
+    Ct: float = 2.0,
+    n: float = 1.0,
+    m: float = 0.0
+) -> float:
+    """
+    Minimal Bradley-style wrinkled-flame model:
+      u' = sqrt(2/3 k)
+      S_T = S_L * (1 + Ct * (u'/S_L)^n * (ell_t/delta_L)^m)
+    With m=0 this reduces to S_T ≈ S_L(1 + Ct u'/S_L).
+    """
+    u_prime = np.sqrt(max(0.0, 2.0/3.0 * k_u))
+    # laminar flame thickness ~ thermal diffusivity / S_L (rough approx)
+    alpha_th = 2.0e-5
+    delta_L = max(2.0e-4, alpha_th / max(0.02, S_L))  # clamp thickness ≥0.2 mm
+    scale = (u_prime / max(0.02, S_L))**n * ( (ell_t_m / delta_L)**m if m != 0 else 1.0 )
+    S_T = S_L * (1.0 + Ct * scale)
+    return float(np.clip(S_T, S_L*1.05, S_L*8.0))  # keep it in a sensible regime
+#%% COMBUSTION
 def combustion_Wiebe( spec: EngineSpec,
                      rpm , throttle, ve, # Inputs
                      fuel: FuelSpec,
-                     lambda_target: float = 1.0, # actual lambda at this operating point
-                     k_mean: float = 5.0,        # [m^2/s^2] from CFD or guess
-                     T_u_mean: float = 330.0,    # unburned-gas mean T (CFD/OpenFOAM)
-                     ell_t_m: float = None,      # turbulence length scale
-                     gas_constant = 287,         # R
-                     T_ivc = 330, 
-                     a = 5, m = 2,               # Wiebe shape
+                     lambda_target: float = 1.0, 
+                     k_mean: float = 5.0, 
+                     T_u_mean: float = 330.0, 
+                     ell_t_m: float = None,
+                     gas_constant = 287, T_ivc = 330, cv_J = 750, # Fuel / Thermodynamics 
+                     a = 5, 
+                     m = 2, 
                      combustion_efficiency = 0.98, 
-                     n_poly_compression = 1.34, n_poly_expansion = 1.26,
+                     n_poly_compression = 1.34, n_poly_expansion = 1.26, 
                      plot = True, return_dic = False): # I/O
     # CRANK ANGLE GRID
     crank_angle = np.linspace(-np.pi, np.pi, 1441)
@@ -65,19 +110,19 @@ def combustion_Wiebe( spec: EngineSpec,
     V = V_clearance + crossSec * piston_pos
     dV_dtheta = np.gradient(V, crank_angle)
     # TRAPPED MASS
-    p_ivc = 20e3 + throttle * (100e3 - 20e3)                       # Pa
-    rho_ivc =  p_ivc / (gas_constant * T_ivc)                      # kg/m3
-    mAirpercycle = rho_ivc * V[i_ivc] * ve                         # kg/cycle
-    mAirpersec = mAirpercycle * spec.n_cylinder * rpm / 120        # All cylinders
-    mFuelpercycle = mAirpercycle / lambda_target * fuel.AFR_stoich # kg/cycle
-    mFuelpersec = mFuelpercycle * spec.n_cylinder * rpm / 120      # All cylinders
-    m_trapped = mAirpercycle + mFuelpercycle                       # kg/cycle
+    p_ivc = 20e3 + throttle * (100e3 - 20e3)  # Pa
+    rho_ivc =  p_ivc / (gas_constant * T_ivc) # kg/m3
+    mAirpercycle = rho_ivc * V[i_ivc] * ve  # kg per cycle
+    mAirpersec = mAirpercycle * spec.n_cylinder * rpm / 120 # All cylinders
+    mFuelpercycle = mAirpercycle / lambda_target * fuel.AFR_stoich # kg per cycle
+    mFuelpersec = mAirpersec / cal.get_target_AFR(rpm)
+    m_trapped = mAirpercycle + mFuelpercycle
     # COMPRESSION STROKE
     V_compression = V[i_ivc:i_soc+1]
     P_compression = (p_ivc * (V[i_ivc]/V_compression) ** n_poly_compression)
     T_compression = (P_compression * V_compression) / (m_trapped * gas_constant)
     # TOTAL ENERGY RELEASE
-    Q_tot = mFuelpercycle * combustion_efficiency * fuel.LHV_MJ_per_kg * 1e6
+    Q_tot = mFuelpercycle * combustion_efficiency * fuel.LHV_MJ_per_kg  # keep your loss knob off for now
     # COMBUSTION
     P_current = P_compression[-1]
     T_current = T_compression[-1]
@@ -219,6 +264,7 @@ def combustion_Wiebe( spec: EngineSpec,
         "tmax_k":   np.nanmax(df['Temperature (K)'].to_numpy()),
     }
         return out
+    #%% EMISSSIONS
 def estimate_Emissions(mDotFuel, AFR, eff):
     """
     Rough estimate of emissions based on fuel mass flow and AFR.
