@@ -101,7 +101,7 @@ It emulates a real engine test bench workflow — as if the virtual engine were 
 ---
 
 ## 📺 Demo
-[WOT Test Demo]([url](https://drive.google.com/file/d/18G-wP4hhR3n0aM7SgCmowkMYLoXPCNX9/view?usp=sharing))
+[WOT Test Demo](https://drive.google.com/file/d/18G-wP4hhR3n0aM7SgCmowkMYLoXPCNX9/view?usp=sharing)
 
 ---
 
