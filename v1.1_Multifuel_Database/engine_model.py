@@ -17,7 +17,7 @@ def laminar_speed(
     phi_width: float = 0.35   # width of quadratic around peak
 ) -> float:
     """
-    Very lightweight generic S_L correlation built around your DB’s S_L at 300K, 1 atm.
+    Very lightweight generic S_L correlation built around your DB's S_L at 300K, 1 atm.
     S_L ≈ S_L,300 * (T/300)^alpha * (p/1atm)^beta * phi-shape
     """
     S0 = fuel.S_L_300K_m_per_s if Sref_mps is None else Sref_mps
@@ -123,7 +123,7 @@ def combustion_Wiebe( spec: EngineSpec,
     p_soc = P_compression[-1]
     T_soc = T_compression[-1]
     # Equivalence ratio phi from AFR
-    phi = max(0.5, min(1.6, fuel.AFR_stoich / max(1e-6, afr_actual)))
+    phi = max(0.0, min(2.0, fuel.AFR_stoich / max(1e-6, afr_actual)))
     # Laminar flame speed at SOC conditions (or CFD T_u)
     T_u = max(300.0, T_u_mean if T_u_mean else T_soc)
     p_u = max(8e4, p_soc)  # keep sane
@@ -309,6 +309,7 @@ def combustion_Wiebe( spec: EngineSpec,
         "p_u_bar": float(p_u / 1e5),
     }
         return out
+#%% EMISSIONS
 def estimate_Emissions(mDotFuel, AFR, eff):
     """
     Rough estimate of emissions based on fuel mass flow and AFR.
