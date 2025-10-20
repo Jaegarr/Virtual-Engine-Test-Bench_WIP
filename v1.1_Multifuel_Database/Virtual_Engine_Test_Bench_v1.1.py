@@ -2,6 +2,7 @@ import sys
 import re
 import pandas as pd
 from Engine_Database import Engines, EngineSpec
+from Fuel_Database import Fuels, FuelSpec
 from Test_Modes import FullRangeSweep, WideOpenThrottle, SingleRun, RunPoint
 from Reporting import export_results_to_csv,rpm_vs_plots, emission_plots, to_legacy
 pd.set_option('display.float_format', '{:.3f}'.format)
@@ -67,18 +68,40 @@ while True:
         sys.exit(0)
     else:
         print("Invalid choice.")
-'''
+
 #%% FUEL SELECTION
 while True:
-    print("Choose Fuel: ")
+    print("\nAvailable Fuels: ")
     print("1. Gasoline")
     print("2. Ethanol")
     print("3. Methanol")
     print("4. Hydrogen")
     print("5. Ammonia")
-    print("6. Gasoline Ethanol Blend")
-    print("7. Gasoline Methanol Blend")  
-    print("8. Hydrogen Ammonia Blend")
+    print("6. Gasoline Ethanol Blend - Not Available Yet")
+    print("7. Gasoline Methanol Blend - Not Available Yet")  
+    print("8. Hydrogen Ammonia Blend - Not Available Yet")
+    selection = input("Select fuel by number: 1, 2, 3, 4, or 5: ").strip()
+    if selection == '1':
+        fuel = Fuels.get("Gasoline")
+        break
+    if selection == '2':
+        fuel = Fuels.get("Ethanol")
+        break
+    if selection == '3':
+        fuel = Fuels.get("Methanol")
+        break
+    if selection == '4':
+        fuel = Fuels.get("H2")
+        break
+    if selection == '5':
+        fuel = Fuels.get("NH3")
+        break
+    '''
+    if selection == '6':
+    if selection == '7':
+    if selection == '8':
+    else:
+        print("Invalid choice.")
 '''
 #%% TEST SELECTION
 # SPEC CHECK
@@ -103,7 +126,7 @@ while True:
                 break
             except:
                 print('Invalid input. RPM must be an integer.')
-        df_singleRun = SingleRun(spec=spec, rpm=rpm) 
+        df_singleRun = SingleRun(spec=spec, fuel=fuel, rpm=rpm) 
         df = to_legacy(df_singleRun)
         export_results_to_csv(df)
         rpm_vs_plots(df)
@@ -113,7 +136,7 @@ while True:
         if combustion_analysis == 'yes':
             RPMpoint = float(input('\nChoose RPM point to analyze:'))
             Throttlepoint = float(input('\nChoose throttle point to analyze:'))
-            RunPoint(spec=spec, rpm = RPMpoint, throttle= Throttlepoint, analyze = True)
+            RunPoint(spec=spec, fuel=fuel, rpm = RPMpoint, throttle= Throttlepoint, analyze = True)
         sys.exit()
 
     elif testMode == '2':
@@ -139,7 +162,7 @@ while True:
                 break
             except:
                 print('Invalid input. Enter an integer RPM.')
-        df_wot = WideOpenThrottle(spec=spec, RPM_min=rpmMin, RPM_max=rpmMax, step=100)
+        df_wot = WideOpenThrottle(spec=spec, fuel=fuel, RPM_min=rpmMin, RPM_max=rpmMax, step=100)
         df = to_legacy(df_wot)
         export_results_to_csv(df)
         rpm_vs_plots(df)
@@ -149,7 +172,7 @@ while True:
         combustion_analysis = input('\nWould you like to analyze the combustion (Yes/No): ').strip().lower()
         if combustion_analysis == 'yes':
             RPMpoint = float(input('\nChoose RPM point to analyze(throttle = 1):'))
-            RunPoint(spec=spec, rpm = RPMpoint, throttle= 1, analyze = True)
+            RunPoint(spec=spec, fuel=fuel, rpm = RPMpoint, throttle= 1, analyze = True)
         sys.exit()
     elif testMode == '3':
         print("You selected: Full sweep")
@@ -174,7 +197,7 @@ while True:
                 break
             except:
                 print('Invalid input. Enter an integer RPM.')
-        df_full = FullRangeSweep(spec=spec, RPM_min=rpmMin, RPM_max=rpmMax, step=100)
+        df_full = FullRangeSweep(spec=spec, fuel=fuel, RPM_min=rpmMin, RPM_max=rpmMax, step=100)
         df = to_legacy(df_full)
         export_results_to_csv(df)
         rpm_vs_plots(df)   # works with multiple throttles too
@@ -182,11 +205,10 @@ while True:
         if combustion_analysis == 'yes':
             RPMpoint = float(input('\nChoose RPM point to analyze:'))
             Throttlepoint = float(input('\nChoose throttle point to analyze:'))
-            RunPoint(spec=spec, rpm = RPMpoint, throttle= Throttlepoint, analyze = True)
+            RunPoint(spec=spec, fuel=fuel, rpm = RPMpoint, throttle= Throttlepoint, analyze = True)
         sys.exit()
     elif testMode == '4':
         print("Exiting program.")
         sys.exit()
-
     else:
         print("Invalid input. Please enter 1, 2, 3, or 4.")

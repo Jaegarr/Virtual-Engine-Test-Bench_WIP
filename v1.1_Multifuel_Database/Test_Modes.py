@@ -1,10 +1,15 @@
 from engine_model import  combustion_Wiebe, estimate_Emissions
 import Calibration as cal
 from Engine_Database import EngineSpec
+from Fuel_Database import FuelSpec
 from typing import Optional, Iterable
-import numpy as np
 import pandas as pd
-def RunPoint(spec: EngineSpec, rpm: int, throttle: float, analyze: bool = False, combustion_kwargs: Optional[dict] = None) -> dict:
+def RunPoint(spec: EngineSpec, 
+             fuel: FuelSpec,  
+             rpm: int, 
+             throttle: float, 
+             analyze: bool = False, 
+             combustion_kwargs: Optional[dict] = None) -> dict:
     """
     Single operating point
     """
@@ -17,10 +22,10 @@ def RunPoint(spec: EngineSpec, rpm: int, throttle: float, analyze: bool = False,
     ve = float(cal.get_ve_from_table(rpm, throttle, table))
     # COMBUSTION
     if analyze == True:
-        res = combustion_Wiebe(spec = spec, rpm = rpm, throttle = throttle, ve = ve, plot = True, return_dic = False)
+        res = combustion_Wiebe(spec = spec, fuel = fuel, rpm = rpm, throttle = throttle, ve = ve, plot = True, return_dic = False)
         return
     else:
-        res = combustion_Wiebe(spec = spec, rpm = rpm, throttle = throttle, ve = ve, plot = False, return_dic = True)
+        res = combustion_Wiebe(spec = spec, fuel = fuel,rpm = rpm, throttle = throttle, ve = ve, plot = False, return_dic = True)
         if not isinstance(res, dict):
             raise RuntimeError("combustion_Wiebe did not return a dict. Ensure return_dic=True is honored.")
         # --- per-cycle -> per-second (4-stroke) ---
@@ -28,7 +33,7 @@ def RunPoint(spec: EngineSpec, rpm: int, throttle: float, analyze: bool = False,
         mdot_air  = res["m_air_per_cycle"]  * cps * spec.n_cylinder  # kg/s
         mdot_fuel = res["m_fuel_per_cycle"] * cps * spec.n_cylinder  # kg/s
         # --- emissions & BSFC ---
-        AFR = cal.get_target_AFR(rpm)
+        AFR = cal.get_target_AFR(rpm, fuel = FuelSpec)
         CO2_gps, CO_gps, NOx_gps, HC_gps = estimate_Emissions(mdot_fuel, AFR, 0.98)
         PkW = max(res["power_kw"], 1e-9)
         BSFC_g_per_kWh = (mdot_fuel * 3600.0 * 1000) / PkW
@@ -60,7 +65,12 @@ def RunPoint(spec: EngineSpec, rpm: int, throttle: float, analyze: bool = False,
         "Pmax_bar": res["pmax_bar"], 
         "Tmax_K":  res["tmax_k"],
         }
-def SingleRun(spec, rpm: int, throttles: Optional[Iterable[float]] = None, analyze_throttles: Optional[Iterable[float]] = None, combustion_kwargs: Optional[dict] = None) -> pd.DataFrame:
+def SingleRun(spec: EngineSpec, 
+              fuel: FuelSpec, 
+              rpm: int, 
+              throttles: Optional[Iterable[float]] = None, 
+              analyze_throttles: Optional[Iterable[float]] = None, 
+              combustion_kwargs: Optional[dict] = None) -> pd.DataFrame:
     """
     For a single engine speed, sweep throttle (e.g., 0.1..1.0) using VE from spec.ve_table.
     Returns a DataFrame with one row per (rpm, throttle).
@@ -71,24 +81,43 @@ def SingleRun(spec, rpm: int, throttles: Optional[Iterable[float]] = None, analy
     rows = []
     for th in throttles:
         rows.append(
-            RunPoint(spec=spec,
-                     rpm=int(rpm),
-                     throttle=float(th),
-                     analyze=(th in analyze_set),
+            RunPoint(spec = spec,
+                     fuel = fuel,
+                     rpm = int(rpm),
+                     throttle = float(th),
+                     analyze = (th in analyze_set),
                      combustion_kwargs=combustion_kwargs)
         )
     return pd.DataFrame(rows).sort_values(["RPM","Throttle"]).reset_index(drop=True)
-def WideOpenThrottle(spec, RPM_min: int, RPM_max: int, step: int = 100, *, analyze_points: Optional[Iterable[int]] = None, combustion_kwargs: Optional[dict] = None) -> pd.DataFrame:
+def WideOpenThrottle(spec:EngineSpec, 
+                     fuel : FuelSpec,
+                     RPM_min: int, 
+                     RPM_max: int, 
+                     step: int = 100, 
+                     *, 
+                     analyze_points: Optional[Iterable[int]] = None, 
+                     combustion_kwargs: Optional[dict] = None) -> pd.DataFrame:
     """
     WOT sweep using VE from spec.ve_table. Returns one row per RPM.
     """
     analyze_set = set(analyze_points or [])
     rows = []
     for r in range(int(RPM_min), int(RPM_max)+1, int(step)):
-        rows.append(RunPoint(spec=spec, rpm=int(r), throttle=1.0, analyze=(r in analyze_set), combustion_kwargs=combustion_kwargs)
+        rows.append(RunPoint(spec = spec, 
+                             fuel = fuel,
+                             rpm = int(r), 
+                             throttle=1.0, 
+                             analyze=(r in analyze_set), combustion_kwargs=combustion_kwargs)
         )
     return pd.DataFrame(rows).sort_values("RPM").reset_index(drop=True)
-def FullRangeSweep(spec, RPM_min: int, RPM_max: int, step: int = 100, throttles: Optional[Iterable[float]] = None, *, combustion_kwargs: Optional[dict] = None) -> pd.DataFrame:
+def FullRangeSweep(spec:EngineSpec, 
+                   fuel: FuelSpec, 
+                   RPM_min: int, 
+                   RPM_max: int, 
+                   step: int = 100, 
+                   throttles: Optional[Iterable[float]] = None, 
+                   *, 
+                   combustion_kwargs: Optional[dict] = None) -> pd.DataFrame:
     """
     Grid sweep over RPM and throttle using VE from spec.ve_table.
     Returns a DataFrame with one row per (RPM,Throttle).
@@ -99,10 +128,11 @@ def FullRangeSweep(spec, RPM_min: int, RPM_max: int, step: int = 100, throttles:
     for r in range(int(RPM_min), int(RPM_max)+1, int(step)):
         for th in throttles:
             rows.append(
-                RunPoint(spec=spec,
-                         rpm=int(r),
-                         throttle=float(th),
-                         analyze=False,
+                RunPoint(spec = spec,
+                         fuel = fuel,
+                         rpm = int(r),
+                         throttle = float(th),
+                         analyze = False,
                          combustion_kwargs=combustion_kwargs)
             )
     return pd.DataFrame(rows).sort_values(["RPM","Throttle"]).reset_index(drop=True)

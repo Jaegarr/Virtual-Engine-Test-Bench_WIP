@@ -1,25 +1,35 @@
 import pandas as pd
 import numpy as np
+from Fuel_Database import Fuels, FuelSpec
 from scipy.interpolate import RegularGridInterpolator
 # Simplified target lambda map by RPM (could be replaced by a CSV/config)
 lambda_target_map = pd.DataFrame({ 'RPM': [1000, 2000, 3000, 4000, 5000, 6000, 7000], 'Lambda': [1.05, 1.0, 0.95, 0.90, 0.88, 0.88, 0.88]})  #1.0, 1.0, 0.95, 0.92, 0.90, 0.88, 0.88
-def get_target_AFR(rpm, AFR=14.7):
-    '''
-    Calculate the target air–fuel ratio (AFR) based on engine speed.
-
-    Parameters:
-        rpm (float): Engine speed in revolutions per minute.
-        AFR (float): Stoichiometric AFR for the fuel (default is 14.7 for gasoline).
-
-    Returns:
-        float: Target AFR accounting for lambda enrichment.
-
-    Notes:
-        - Uses linear interpolation over a predefined lambda vs. RPM table.
-        - At higher RPM, lambda < 1.0 means richer mixture for knock protection and cooling.
-    '''
+def get_target_AFR(rpm: float,
+                   fuel: FuelSpec,
+                   lambda_table: dict = lambda_target_map) -> float:
+    """
+        Determine the target air–fuel ratio (AFR) for a given engine speed and fuel.
+        Parameters
+        ----------
+        rpm : float
+            Engine speed [rev/min].
+        fuel : FuelSpec
+            Fuel specification containing at least `AFR_stoich`.
+        lambda_table : dict, optional
+            Mapping of RPM to target lambda values (default: lambda_target_map).
+        Returns
+        -------
+        float
+            Target AFR = stoichiometric AFR of the fuel × target lambda.
+        Notes
+        -----
+        - Target lambda is linearly interpolated from the given table.
+        - λ < 1.0 at high rpm indicates enrichment for knock protection/cooling.
+        - Because AFR_stoich is taken from the fuel spec, different fuels
+        automatically yield correct targets.
+    """
     target_lambda = float(np.interp(rpm, lambda_target_map['RPM'], lambda_target_map['Lambda']))
-    target_AFR = AFR * target_lambda
+    target_AFR = fuel.AFR_stoich * target_lambda
     return target_AFR
 def get_ve_from_table(rpm, throttle, ve_table, idle_kpa: float = 20.0, wot_kpa: float = 100.0):
     """

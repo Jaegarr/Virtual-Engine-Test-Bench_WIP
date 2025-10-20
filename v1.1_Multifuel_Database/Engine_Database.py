@@ -49,6 +49,6 @@ Engines.register(
                 stroke_m = 0.0814, 
                 conrod_m = 0.10582, 
                 compression_ratio = 10.3,
-                ve_table=r'C:\Users\berke\OneDrive\Masaüstü\GitHub\Virtual-Engine-Test-Bench\v1.0h_Combustion_Model_H_NH3d\Nissan_350Z_VE.csv'
+                ve_table=r'C:\Users\berke\OneDrive\Masaüstü\GitHub\Virtual-Engine-Test-Bench\v1.1_Multifuel_Database\Nissan_350Z_VE.csv'
                 )
 )

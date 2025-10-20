@@ -17,7 +17,7 @@ def laminar_speed(
     phi_width: float = 0.35   # width of quadratic around peak
 ) -> float:
     """
-    Very lightweight generic S_L correlation built around your DB's S_L at 300K, 1 atm.
+    Generic S_L correlation built around S_L at 300K, 1 atm.
     S_L ≈ S_L,300 * (T/300)^alpha * (p/1atm)^beta * phi-shape
     """
     S0 = fuel.S_L_300K_m_per_s if Sref_mps is None else Sref_mps
@@ -48,11 +48,9 @@ def turbulent_speed(
     scale = (u_prime / max(0.02, S_L))**n * ( (ell_t_m / delta_L)**m if m != 0 else 1.0 )
     S_T = S_L * (1.0 + Ct * scale)
     return float(np.clip(S_T, S_L*1.05, S_L*8.0))  # keep it in a sensible regime
-
 def combustion_Wiebe( spec: EngineSpec,
                      rpm , throttle, ve, # Inputs
                      fuel: FuelSpec,
-                     lambda_target: float = 1.0, # actual lambda at this operating point
                      k_mean: float = 5.0,        # [m^2/s^2] from CFD or guess
                      T_u_mean: float = 330.0,    # unburned-gas mean T (CFD/OpenFOAM)
                      ell_t_m: float = None,      # turbulence length scale
@@ -104,7 +102,7 @@ def combustion_Wiebe( spec: EngineSpec,
     p_ivc = 20e3 + throttle * (100e3 - 20e3)                       # Pa
     rho_ivc =  p_ivc / (gas_constant * T_ivc)                      # kg/m3
     mAirpercycle = rho_ivc * V[i_ivc] * ve                         # kg/cycle
-    afr_actual = lambda_target * fuel.AFR_stoich
+    afr_actual = cal.get_target_AFR(rpm, fuel = fuel)
     mAirpersec = mAirpercycle * spec.n_cylinder * rpm / 120        # All cylinders
     mFuelpercycle = mAirpercycle / afr_actual                      # kg/cycle
     mFuelpersec = mFuelpercycle * spec.n_cylinder * rpm / 120      # All cylinders
@@ -162,7 +160,7 @@ def combustion_Wiebe( spec: EngineSpec,
     ca90_rad = ca_at_mfb(0.90)
     ca10_deg, ca50_deg, ca90_deg = map(np.degrees, (ca10_rad, ca50_rad, ca90_rad))
     P_combustion, T_combustion, mfb_list = [], [], []
-    for i in range(i_soc, i_eoc+1):
+    for i in range(i_soc, i_eoc):
         theta = crank_angle[i]
         x = (theta - soc_rad) / delta
         x = np.clip(x, 0.0, 1.0)
@@ -229,14 +227,14 @@ def combustion_Wiebe( spec: EngineSpec,
         'Mass Fraction Burned': np.nan
     })
     df.loc[i_ivc:i_soc, 'Pressure (bar)'] = P_compression / 1e5
-    df.loc[i_soc:i_eoc, 'Pressure (bar)'] = np.array(P_combustion) / 1e5
+    df.loc[i_soc:i_eoc - 1, 'Pressure (bar)'] = np.array(P_combustion) / 1e5
     df.loc[i_eoc:i_evo, 'Pressure (bar)'] = P_expansion / 1e5
     df.loc[i_evo:i_ivo, 'Pressure (bar)'] = P_blowdown / 1e5
     df.loc[i_ivc:i_soc, 'Temperature (K)']  = T_compression
-    df.loc[i_soc:i_eoc, 'Temperature (K)']  = np.array(T_combustion)
+    df.loc[i_soc:i_eoc - 1, 'Temperature (K)']  = np.array(T_combustion)
     df.loc[i_eoc:i_evo, 'Temperature (K)']  = T_expansion
     df.loc[i_evo:i_ivo, 'Temperature (K)']  = T_blowdown
-    df.loc[i_soc:i_eoc, 'Mass Fraction Burned'] = np.array(mfb_list)
+    df.loc[i_soc:i_eoc - 1, 'Mass Fraction Burned'] = np.array(mfb_list)
     # p–V + IMEP 
     P_pa = (df['Pressure (bar)'].to_numpy() * 1e5)
     V_m3 = df['Volume (m3)'].to_numpy()
