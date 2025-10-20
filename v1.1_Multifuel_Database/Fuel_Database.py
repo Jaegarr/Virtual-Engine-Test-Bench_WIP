@@ -140,7 +140,7 @@ Fuels.register(
         phi_peak=1.10, phi_width=0.35, alpha_T=2.0, beta_p=-0.25, phi_minmax=(0.6, 2.0),
     ),
 )
-# BLENDING
+#%% BLENDING
 # Liquid densities [kg/L] for converting volume% to mass%
 rho_liq = {
     "Gasoline": 0.74,
