@@ -75,10 +75,6 @@ def combustion_Wiebe( spec: EngineSpec,
     i_ivc = int(np.argmin(np.abs(crank_angle - ivc_rad)))
     i_evo = int(np.argmin(np.abs(crank_angle - evo_rad)))
     i_evc = int(np.argmin(np.abs(crank_angle - evc_rad))) 
-    # ⬇⬇⬇ ADD THIS CAP: never let EOC reach or pass EVO
-    max_eoc_rad = evo_rad - dtheta              # leave at least one sample for expansion slice
-    eoc_rad = min(soc_rad + Delta_theta_rad, max_eoc_rad)
-    # reindex burn window with the new SOC/EOC (after the cap)
     i_soc = int(np.argmin(np.abs(crank_angle - soc_rad)))
     i_eoc = int(np.argmin(np.abs(crank_angle - eoc_rad)))
     delta = eoc_rad - soc_rad
@@ -111,7 +107,7 @@ def combustion_Wiebe( spec: EngineSpec,
     p_ivc = 20e3 + throttle * (100e3 - 20e3)                       # Pa
     rho_ivc =  p_ivc / (gas_constant * T_ivc)                      # kg/m3
     mAirpercycle = rho_ivc * V[i_ivc] * ve                         # kg/cycle
-    afr_actual = cal.get_target_AFR(rpm, fuel = fuel)
+    afr_actual = cal.get_target_AFR(rpm, fuel = fuel)              # Fuel dependent
     mAirpersec = mAirpercycle * spec.n_cylinder * rpm / 120        # All cylinders
     mFuelpercycle = mAirpercycle / afr_actual                      # kg/cycle
     mFuelpersec = mFuelpercycle * spec.n_cylinder * rpm / 120      # All cylinders
