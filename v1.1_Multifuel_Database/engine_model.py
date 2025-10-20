@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import Calibration as cal
 from Engine_Database import EngineSpec
-from Fuel_Database import FuelDB, FuelSpec, Fuels
+from Fuel_Database import FuelSpec, Fuels
 #%% FLAME SPEED
 def laminar_speed(
     fuel: FuelSpec,
@@ -70,13 +70,22 @@ def combustion_Wiebe( spec: EngineSpec,
     eoc_rad = np.deg2rad(25.0)
     evo_rad = np.deg2rad(110.0)
     evc_rad = np.deg2rad(-160.0)
+    soc_rad = np.deg2rad(-10.0)                 # keep your current spark for now
     i_ivo = int(np.argmin(np.abs(crank_angle - ivo_rad))) 
     i_ivc = int(np.argmin(np.abs(crank_angle - ivc_rad)))
-    i_soc = int(np.argmin(np.abs(crank_angle - soc_rad)))
-    i_eoc = int(np.argmin(np.abs(crank_angle - eoc_rad))) 
     i_evo = int(np.argmin(np.abs(crank_angle - evo_rad)))
     i_evc = int(np.argmin(np.abs(crank_angle - evc_rad))) 
+    # ⬇⬇⬇ ADD THIS CAP: never let EOC reach or pass EVO
+    max_eoc_rad = evo_rad - dtheta              # leave at least one sample for expansion slice
+    eoc_rad = min(soc_rad + Delta_theta_rad, max_eoc_rad)
+    # reindex burn window with the new SOC/EOC (after the cap)
+    i_soc = int(np.argmin(np.abs(crank_angle - soc_rad)))
+    i_eoc = int(np.argmin(np.abs(crank_angle - eoc_rad)))
     delta = eoc_rad - soc_rad
+    if i_eoc <= i_soc:
+        i_eoc = min(i_soc + 3, i_evo - 1, len(crank_angle) - 2)  # ensure positive window
+        eoc_rad = crank_angle[i_eoc]
+        delta   = eoc_rad - soc_rad
     # cv(T) MAPS
     T_knots = np.array([300, 600, 1000, 1500, 2000, 2500, 3000, 3500])
     cv_u_knots = np.array([718, 740, 820,  900,  960, 1000, 1030, 1050])   # unburned (air-ish)
