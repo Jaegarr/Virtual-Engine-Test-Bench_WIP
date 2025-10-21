@@ -1,9 +1,11 @@
-from engine_model import  combustion_Wiebe, estimate_Emissions
+import pandas as pd
 import Calibration as cal
+from engine_model import  combustion_Wiebe, estimate_Emissions
 from Engine_Database import EngineSpec
 from Fuel_Database import FuelSpec
 from typing import Optional, Iterable
-import pandas as pd
+from Grey_Box import GPResidualCorrector
+
 def RunPoint(spec: EngineSpec, 
              fuel: FuelSpec,  
              rpm: int, 
@@ -136,5 +138,7 @@ def FullRangeSweep(spec:EngineSpec,
                          combustion_kwargs=combustion_kwargs)
             )
     return pd.DataFrame(rows).sort_values(["RPM","Throttle"]).reset_index(drop=True)
+'''
 def DesignComparison():
     return
+'''

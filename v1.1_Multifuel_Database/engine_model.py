@@ -120,9 +120,10 @@ def combustion_Wiebe( spec: EngineSpec,
     p_soc = P_compression[-1]
     T_soc = T_compression[-1]
     phi = max(0.0, min(2.0, fuel.AFR_stoich / max(1e-6, afr_actual))) # Equivalence ratio
-    mean_piston = 2 * spec.stroke_m * rpm / 60                            # mean piston speed [m/s]
+    mean_piston = 2 * spec.stroke_m * rpm / 60                        # mean piston speed [m/s]
     if k_mean is None or k_mean < 10.0:
-        c_t = 0.30                                                    # turbulence intensity fraction
+        c_t0 = 0.30                                                   # turbulence intensity fraction
+        c_t = c_t0 *(1 + 0.15 * mean_piston / 10)                     # intensity increase for higher speeds
         u_prime = c_t * mean_piston                                   # u' 
         k_mean = 1.5 * u_prime**2                                     # k = 3/2 u'^2
     # Laminar/turbulent flame speed
@@ -132,10 +133,10 @@ def combustion_Wiebe( spec: EngineSpec,
     if t_length_mean is None: # Turbulence length scale
         t_length_mean = 0.4 * spec.bore_m
     S_T = turbulent_speed(S_L, k_mean, t_length_mean)
-    L_char = 0.26 * spec.bore_m        # Flame travel
-    omega = rpm * 2*np.pi / 60.0       # [rad/s]
-    tau_burn = L_char / max(0.05, S_T) # [s]
-    theta_burn_rad = omega * tau_burn  # [rad]
+    L_char = 0.26 * spec.bore_m                     # Flame travel
+    omega = rpm * 2*np.pi / 60.0                    # [rad/s]
+    tau_burn = L_char / max(0.05, S_T)              # [s]
+    theta_burn_rad = omega * tau_burn               # [rad]
     theta_10_90_rad = 0.9 * theta_burn_rad
     # Given a,m, compute Δθ (Wiebe duration)
     def xi(y):  # normalized crank for MFB=y
@@ -248,8 +249,7 @@ def combustion_Wiebe( spec: EngineSpec,
     mask = ~np.isnan(P_pa)
     W_cyl = np.trapezoid(P_pa[mask], V_m3[mask])
     imep_gross = W_cyl / V_displacement
-    
-    fmep = (0.6 + 0.00050 * mean_piston + 0.00550 * (mean_piston) ** 2) * 1e5
+    fmep = (0.8 + 0.00050 * mean_piston + 0.00550 * (mean_piston) ** 2) * 1e5
     pmep = (0.03 + 0.000035 * rpm) * 1e5
     bmep = imep_gross - fmep - pmep
     Vd_total = V_displacement * spec.n_cylinder
