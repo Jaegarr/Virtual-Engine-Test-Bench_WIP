@@ -33,7 +33,7 @@ def RunPoint(spec: EngineSpec,
         mdot_air  = res["m_air_per_cycle"]  * cps * spec.n_cylinder  # kg/s
         mdot_fuel = res["m_fuel_per_cycle"] * cps * spec.n_cylinder  # kg/s
         # --- emissions & BSFC ---
-        AFR = cal.get_target_AFR(rpm, fuel = FuelSpec)
+        AFR = cal.get_target_AFR(rpm, fuel = fuel)
         CO2_gps, CO_gps, NOx_gps, HC_gps = estimate_Emissions(mdot_fuel, AFR, 0.98)
         PkW = max(res["power_kw"], 1e-9)
         BSFC_g_per_kWh = (mdot_fuel * 3600.0 * 1000) / PkW
