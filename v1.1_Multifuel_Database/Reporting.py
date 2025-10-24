@@ -3,36 +3,54 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 def to_legacy(df: pd.DataFrame) -> pd.DataFrame:
-    """Map RunPoint/Mode outputs to legacy Reporting column names."""
-    return pd.DataFrame({
-    'Engine Speed(RPM)': df['RPM'],
-    'Throttle':           df['Throttle'],
-    'Torque(Nm)':        df['Torque_Nm'],
-    'Power(kW)':         df['Power_kW'],
-    'Horsepower':         df['Power_kW'] * 1.34102209,   # kW -> HP
-    # mass flows
-    'Air Flow(g/s)':      df['mdot_air_kg_s']  * 1000.0,
-    'Fuel Flow(g/s)':     df['mdot_fuel_kg_s'] * 1000.0,
-    # pressures/efficiencies
-    'IMEP(bar)':         df['IMEP_bar'],
-    'BMEP(bar)':         df['BMEP_bar'],
-    'PMEP(bar)':         df['PMEP_bar'],
-    'FMEP(bar)':         df['FMEP_bar'],
-    'BSFC(g/kWh)':       df['BSFC_g_per_kWh'],
-    # emissions (instantaneous rates)
-    'CO2(g/s)':           df['CO2_gps'],
-    'CO(g/s)':            df['CO_gps'],
-    'NOx(g/s)':           df['NOx_gps'],
-    'HC(g/s)':            df['HC_gps'],
-    # emissions intensities
-    'CO2(g/kWh)':        df['CO2_g_kWh'],
-    'CO(g/kWh)':         df['CO_g_kWh'],
-    'NOx(g/kWh)':        df['NOx_g_kWh'],
-    'HC(g/kWh)':         df['HC_g_kWh'],
-    # In-cylinder measurements
-    'Pmax(bar)':          df['Pmax_bar'],
-    'Tmax(K)':            df['Tmax_K'],
-}).round(3)
+    out = pd.DataFrame({
+        'Engine Speed(RPM)': df['RPM'],
+        'Throttle':          df['Throttle'],
+        'Torque(Nm)':        df['Torque_Nm'],
+        'Power(kW)':         df['Power_kW'],
+        'Horsepower':        df['Power_kW'] * 1.34102209,
+
+        'Air Flow(g/s)':     df['mdot_air_kg_s']  * 1000.0,
+        'Fuel Flow(g/s)':    df['mdot_fuel_kg_s'] * 1000.0,
+
+        'IMEP(bar)':         df['IMEP_bar'],
+        'BMEP(bar)':         df['BMEP_bar'],
+        'PMEP(bar)':         df['PMEP_bar'],
+        'FMEP(bar)':         df['FMEP_bar'],
+        'BSFC(g/kWh)':       df['BSFC_g_per_kWh'],
+
+        'CO2(g/s)':          df['CO2_gps'],
+        'CO(g/s)':           df['CO_gps'],
+        'NOx(g/s)':          df['NOx_gps'],
+        'HC(g/s)':           df['HC_gps'],
+
+        'CO2(g/kWh)':        df['CO2_g_kWh'],
+        'CO(g/kWh)':         df['CO_g_kWh'],
+        'NOx(g/kWh)':        df['NOx_g_kWh'],
+        'HC(g/kWh)':         df['HC_g_kWh'],
+
+        'Pmax(bar)':         df['Pmax_bar'],
+        'Tmax(K)':           df['Tmax_K'],
+
+        # --- new diagnostics (optional) ---
+        'Lambda':            df.get('lambda',      np.nan),
+        'Phi (φ)':           df.get('phi',         np.nan),
+        'CA10 (deg)':        df.get('ca10_deg',    np.nan),
+        'CA50 (deg)':        df.get('ca50_deg',    np.nan),
+        'CA90 (deg)':        df.get('ca90_deg',    np.nan),
+        'SOC (deg)':         df.get('soc_deg',     np.nan),
+        'EOC (deg)':         df.get('eoc_deg',     np.nan),
+        'Burn 10 - 90 (deg)':df.get('burn_10_90_deg', np.nan),
+        'S_L (m/s)':         df.get('S_L_m_per_s', np.nan),
+        'S_T (m/s)':         df.get('S_T_m_per_s', np.nan),
+        'KnockIdx':          df.get('knock_index', np.nan),
+        'Qchem (kJ/cyc)':    df.get('q_chem_kj_per_cycle', np.nan),
+        'Q_ht (kJ/cyc)':     df.get('q_ht_kj_per_cycle',   np.nan),
+        'W_ind (kJ/cyc)':    df.get('w_ind_kj_per_cycle',  np.nan),
+        'η_ind (%)':         df.get('eta_ind_percent',     np.nan),
+    })
+    return out.round(3)
+
 def export_results_to_csv(data, default_folder="Results"):
     """
     Export a pandas DataFrame to a CSV file with a user-defined filename and folder.

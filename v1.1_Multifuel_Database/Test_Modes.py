@@ -1,10 +1,9 @@
 import pandas as pd
 import Calibration as cal
 from engine_model import  combustion_Wiebe, estimate_Emissions
-from Engine_Database import EngineSpec, Engines
-from Fuel_Database import FuelSpec, Fuels, blend_H2_NH3
+from Engine_Database import EngineSpec
+from Fuel_Database import FuelSpec
 from typing import Optional, Iterable
-'''from Grey_Box import GPResidualCorrector'''
 
 def RunPoint(spec: EngineSpec, 
              fuel: FuelSpec,  
@@ -13,60 +12,100 @@ def RunPoint(spec: EngineSpec,
              analyze: bool = False, 
              combustion_kwargs: Optional[dict] = None) -> dict:
     """
-    Single operating point
+    Single operating point.
     """
     if combustion_kwargs is None:
         combustion_kwargs = {}
-    # VE from table
+
+    # --- VE from table ---
     table = getattr(spec, "ve_table", None)
     if not isinstance(table, pd.DataFrame):
         raise TypeError(f"spec.ve_table must be a pandas DataFrame, got {type(table)}")
     ve = float(cal.get_ve_from_table(rpm, throttle, table))
-    # COMBUSTION
-    if analyze == True:
-        res = combustion_Wiebe(spec = spec, fuel = fuel, rpm = rpm, throttle = throttle, ve = ve, plot = True, return_dic = False)
-        return
-    else:
-        res = combustion_Wiebe(spec = spec, fuel = fuel,rpm = rpm, throttle = throttle, ve = ve, plot = False, return_dic = True)
-        if not isinstance(res, dict):
-            raise RuntimeError("combustion_Wiebe did not return a dict. Ensure return_dic=True is honored.")
-        # --- per-cycle -> per-second (4-stroke) ---
-        cps = rpm / 120.0  # cycles per second per cylinder
-        mdot_air  = res["m_air_per_cycle"]  * cps * spec.n_cylinder  # kg/s
-        mdot_fuel = res["m_fuel_per_cycle"] * cps * spec.n_cylinder  # kg/s
-        # --- emissions & BSFC ---
-        AFR = cal.get_target_AFR(rpm, fuel = fuel)
-        CO2_gps, CO_gps, NOx_gps, HC_gps = estimate_Emissions(mdot_fuel, AFR, 0.98)
-        PkW = max(res["power_kw"], 1e-9)
-        BSFC_g_per_kWh = (mdot_fuel * 3600.0 * 1000) / PkW
-        to_gkWh = lambda gps: (gps * 3600.0) / PkW
-        return {
-        "RPM": rpm, 
-        "Throttle": throttle, 
+
+    # --- Combustion ---
+    if analyze is True:
+        combustion_Wiebe(
+            spec=spec, fuel=fuel, rpm=rpm, throttle=throttle, ve=ve,
+            plot=True, return_dic=False, **combustion_kwargs
+        )
+        return  # plotting-only path
+
+    res = combustion_Wiebe(
+        spec=spec, fuel=fuel, rpm=rpm, throttle=throttle, ve=ve,
+        plot=False, return_dic=True, **combustion_kwargs
+    )
+    if not isinstance(res, dict):
+        raise RuntimeError("combustion_Wiebe did not return a dict. Ensure return_dic=True is honored.")
+
+    # --- per-cycle -> per-second (4-stroke) ---
+    cps = rpm / 120.0  # cycles per second per cylinder
+    mdot_air  = res["m_air_per_cycle_kg"]  * cps * spec.n_cylinder  # kg/s
+    mdot_fuel = res["m_fuel_per_cycle_kg"] * cps * spec.n_cylinder  # kg/s
+
+    # --- emissions & BSFC ---
+    AFR = cal.get_target_AFR(rpm, fuel=fuel)
+    CO2_gps, CO_gps, NOx_gps, HC_gps = estimate_Emissions(mdot_fuel, AFR, 0.98)
+
+    PkW = max(res["power_kw"], 1e-9)
+    BSFC_g_per_kWh = (mdot_fuel * 3600.0 * 1000.0) / PkW
+    to_gkWh = lambda gps: (gps * 3600.0) / PkW
+
+    # --- assemble output (assume all keys exist in `res`) ---
+    out = {
+        "RPM": rpm,
+        "Throttle": throttle,
         "VE": ve,
-        "Torque_Nm": res["torque_nm"], 
-        "Power_kW": res["power_kw"],
-        "IMEP_bar": res["imep_gross_pa"]/1e5, 
-        "BMEP_bar": res["bmep_pa"]/1e5,
-        "FMEP_bar": res["fmep_pa"]/1e5, 
-        "PMEP_bar": res["pmep_pa"]/1e5,
-        "mdot_air_kg_s": mdot_air, 
+
+        # performance
+        "Torque_Nm": res["torque_nm"],
+        "Power_kW":  res["power_kw"],
+
+        # mean effective pressures
+        "IMEP_bar":  res["imep_gross_pa"] / 1e5,
+        "BMEP_bar":  res["bmep_pa"]       / 1e5,
+        "FMEP_bar":  res["fmep_pa"]       / 1e5,
+        "PMEP_bar":  res["pmep_pa"]       / 1e5,
+
+        # flows
+        "mdot_air_kg_s":  mdot_air,
         "mdot_fuel_kg_s": mdot_fuel,
+
+        # fuel economy
         "BSFC_g_per_kWh": BSFC_g_per_kWh,
-        "CO2_gps": CO2_gps, 
-        "CO_gps": CO_gps, 
-        "NOx_gps": NOx_gps, 
-        "HC_gps": HC_gps,
-        "CO2_g_kWh": to_gkWh(CO2_gps), 
-        "CO_g_kWh": to_gkWh(CO_gps),
-        "NOx_g_kWh": to_gkWh(NOx_gps), 
-        "HC_g_kWh": to_gkWh(HC_gps),
-        "CA10_deg": res["ca10_deg"], 
-        "CA50_deg": res["ca50_deg"], 
-        "CA90_deg": res["ca90_deg"],
-        "Pmax_bar": res["pmax_bar"], 
-        "Tmax_K":  res["tmax_k"],
-        }
+
+        # emissions (rates)
+        "CO2_gps": CO2_gps, "CO_gps": CO_gps, "NOx_gps": NOx_gps, "HC_gps": HC_gps,
+        # emissions intensities
+        "CO2_g_kWh": to_gkWh(CO2_gps), "CO_g_kWh": to_gkWh(CO_gps),
+        "NOx_g_kWh": to_gkWh(NOx_gps), "HC_g_kWh": to_gkWh(HC_gps),
+
+        # timings / phasing
+        "ca10_deg": res["ca10_deg"], "ca50_deg": res["ca50_deg"], "ca90_deg": res["ca90_deg"],
+        "Pmax_bar": res["pmax_bar"], "Tmax_K": res["tmax_k"],
+
+        # mixture / extra diagnostics (lowercase keys to match `to_legacy`)
+        "lambda":         res["lambda"],
+        "phi":            res["phi"],
+        "soc_deg":        res["soc_deg"],
+        "eoc_deg":        res["eoc_deg"],
+        "burn_10_90_deg": res["burn_10_90_deg"],
+
+        # flame speeds
+        "S_L_m_per_s": res["S_L_m_per_s"],
+        "S_T_m_per_s": res["S_T_m_per_s"],
+
+        # knock proxy
+        "knock_index": res["knock_index"],
+
+        # energy accounting (per cycle, per cylinder)
+        "q_chem_kj_per_cycle": res["q_chem_kj_per_cycle"],
+        "q_ht_kj_per_cycle":   res["q_ht_kj_per_cycle"],
+        "w_ind_kj_per_cycle":  res["w_ind_kj_per_cycle"],
+        "eta_ind_percent":     res["eta_ind_percent"],
+    }
+
+    return out
 def SingleRun(spec: EngineSpec, 
               fuel: FuelSpec, 
               rpm: int, 
@@ -142,19 +181,3 @@ def FullRangeSweep(spec:EngineSpec,
 def DesignComparison():
     return
 '''
-import pandas as pd
-import matplotlib.pyplot as plt
-
-# ---- paste your rows here (fuel, lambda, imep) ----
-rows = [
-    ("Ammonia", 0.8, 14.72), ("Ammonia", 0.9, 13.49), ("Ammonia", 1.0, 12.82),
-    ("Ammonia", 1.1, 10.82), ("Ammonia", 1.2, 9.48), ("Ammonia", 1.3, 8.81), ("Ammonia", 1.5, 7.73),
-    ("Gasoline", 0.8, 15.45), ("Gasoline", 0.9, 14.00), ("Gasoline", 1.0, 13.35),
-    ("Gasoline", 1.1, 11.59), ("Gasoline", 1.2, 10.46), ("Gasoline", 1.3, 8.93), ("Gasoline", 1.5, 7.85),
-    ("Hydrogen", 0.8, 18.21), ("Hydrogen", 0.9, 16.43), ("Hydrogen", 1.0, 15.67),
-    ("Hydrogen", 1.1, 13.78), ("Hydrogen", 1.2, 12.76), ("Hydrogen", 1.3, 11.76), ("Hydrogen", 1.5, 10.37),
-    ("Hydrogen&Ammonia(10%w Hydrogen)", 0.8, 16.91), ("Hydrogen&Ammonia(10%w Hydrogen)", 0.9, 15.33),
-    ("Hydrogen&Ammonia(10%w Hydrogen)", 1.0, 13.91), ("Hydrogen&Ammonia(10%w Hydrogen)", 1.1, 12.65),
-    ("Hydrogen&Ammonia(10%w Hydrogen)", 1.2, 11.37), ("Hydrogen&Ammonia(10%w Hydrogen)", 1.3, 9.63),
-    ("Hydrogen&Ammonia(10%w Hydrogen)", 1.5, 8.46),
-]

@@ -4,324 +4,442 @@ import matplotlib.pyplot as plt
 import Calibration as cal
 from Engine_Database import EngineSpec
 from Fuel_Database import FuelSpec, Fuels
-#%% FLAME SPEED
+
+# =============================================================================
+# Laminar & turbulent flame speed models
+# =============================================================================
 def laminar_speed(
     fuel: FuelSpec,
-    T_u_K: float,
-    p_u_Pa: float,
-    phi: float,
-    Sref_mps: float = None,
-    alpha_T: float = 2.0,     # T exponent (generic)
-    beta_p: float = -0.25,    # p exponent (generic)
-    phi_peak: float = 1.1,    # where S_L peaks (gasolineish)
-    phi_width: float = 0.35   # width of quadratic around peak
+    T_unburned_K: float,          # unburned-gas temperature [K]
+    p_unburned_Pa: float,         # unburned-gas pressure [Pa]
+    phi: float,                    # equivalence ratio [-]
+    S_ref_m_per_s: float = None,  # optional override of S_L at 300 K, 1 atm
+    temp_exp_alpha: float = 2.0,       # S_L ∝ T^alpha   (generic)
+    press_exp_beta: float = -0.25,     # S_L ∝ p^beta    (generic)
+    phi_peak: float = 1.1,             # peak of S_L(ϕ) (gasolineish)
+    phi_width: float = 0.35            # width of the ϕ parabola
 ) -> float:
     """
-    Generic S_L correlation built around S_L at 300K, 1 atm.
-    S_L ≈ S_L,300 * (T/300)^alpha * (p/1atm)^beta * phi-shape
+    Minimal laminar flame-speed correlation:
+        S_L ≈ S_L,300K,1atm * (T/300)^a * (p/1 atm)^β * ϕ-shape
+    Keeps S_L within sensible floors to avoid numerical issues.
     """
-    S0 = fuel.S_L_300K_m_per_s if Sref_mps is None else Sref_mps
-    T_term = (T_u_K / 300.0)**alpha_T
-    p_term = (p_u_Pa / 101325.0)**beta_p
-    # simple parabola in phi around phi_peak: ~1 - ((phi-phi_peak)/width)^2
-    phi_shape = max(0.15, 1.0 - ((phi - phi_peak)/phi_width)**2)
-    return max(0.02, S0 * T_term * p_term * phi_shape)
-
+    S0 = fuel.S_L_300K_m_per_s if S_ref_m_per_s is None else S_ref_m_per_s
+    T_term = (T_unburned_K / 300.0)**temp_exp_alpha
+    p_term = (p_unburned_Pa / 101_325.0)**press_exp_beta
+    # simple parabola in phi around phi_peak
+    phi_shape = max(0.15, 1.0 - ((phi - phi_peak) / phi_width) ** 2)
+    return max(0.02, S0 * T_term * p_term * phi_shape)  # floor ~2 cm/s
 def turbulent_speed(
-    S_L: float,
-    k_u: float,
-    ell_t_m: float,
-    nu_u_m2s: float = 1.7e-5,
-    Ct: float = 1.5,
-    n: float = 1.0,
-    m: float = 0.3
+    S_L_m_per_s: float,
+    k_turb_m2_per_s2: float,  # turbulent kinetic energy k [m^2/s^2]
+    ell_turb_m: float,        # turbulence integral length [m]
+    nu_kinematic_m2_per_s: float = 1.7e-5,  # (unused placeholder)
+    C_t: float = 1.5,
+    n_exp: float = 1.0,
+    m_exp: float = 0.3
 ) -> float:
     """
-    Minimal Bradley-style wrinkled-flame model:
-      u' = sqrt(2/3 k)
-      S_T = S_L * (1 + Ct * (u'/S_L)^n * (l_t/delta_L)^m)
-    With m=0 this reduces to S_T ≈ S_L(1 + Ct u'/S_L).
+    Bradley-style wrinkled-flame model:
+        u' = sqrt(2/3 * k)
+        δ_L ~ a_th / S_L
+        S_T = S_L * (1 + C_t * (u'/S_L)^n * (ell_t/δ_L)^m)
+
+    Notes:
+    - We clamp δ_L to avoid vanishingly small thickness.
+    - We clamp S_T to a sensible range for stability.
     """
-    u_prime = np.sqrt(max(0.0, 2.0/3.0 * k_u))
-    # laminar flame thickness ~ thermal diffusivity / S_L (rough approx)
-    alpha_th = 2.0e-5
-    delta_L = max(5.0e-5, alpha_th / max(0.02, S_L))  # clamp thickness ≥0.2 mm
-    scale = (u_prime / max(0.02, S_L))**n * ( (ell_t_m / delta_L)**m if m != 0 else 1.0 )
-    S_T = S_L * (1.0 + Ct * scale)
-    return float(np.clip(S_T, max(S_L*1.05, 3.0), 40.0))
-def combustion_Wiebe( spec: EngineSpec,
-                     rpm , throttle, ve,  # Inputs
-                     fuel: FuelSpec,
-                     k_mean: float = 5.0,        # [m^2/s^2] from CFD or guess
-                     T_u_mean: float = 330.0,    # unburned-gas mean T (CFD/OpenFOAM)
-                     t_length_mean: float = None,      # turbulence length scale
-                     gas_constant = 287,         # R
-                     T_ivc = 330,
-                     a = 5, m = 2,               # Wiebe shape
-                     combustion_efficiency = 0.98,
-                     n_poly_compression = 1.34, n_poly_expansion = 1.26,
-                     plot = True, return_dic = False):  # I/O
-    # CRANK ANGLE GRID
-    crank_angle = np.linspace(-np.pi, np.pi, 1441)
-    dtheta = crank_angle[1] - crank_angle[0]
-    # VALVE & BURN TIMINGS
-    ivo_rad = np.deg2rad(130.0)
-    ivc_rad = np.deg2rad(-110.0)
-    soc_rad = np.deg2rad(-10.0)
-    eoc_rad = np.deg2rad(25.0)
-    evo_rad = np.deg2rad(110.0)
-    evc_rad = np.deg2rad(-160.0)
-    i_ivo = int(np.argmin(np.abs(crank_angle - ivo_rad)))
-    i_ivc = int(np.argmin(np.abs(crank_angle - ivc_rad)))
-    i_evo = int(np.argmin(np.abs(crank_angle - evo_rad)))
-    i_evc = int(np.argmin(np.abs(crank_angle - evc_rad)))
-    # cv(T) MAPS
+    u_prime_m_per_s = np.sqrt(max(0.0, 2.0/3.0 * k_turb_m2_per_s2))
+    alpha_thermal_m2_per_s = 2.0e-5  # rough thermal diffusivity of unburned mix
+    # Clamp laminar thickness to ≥ 0.2 mm
+    delta_L_m = max(2.0e-4, alpha_thermal_m2_per_s / max(0.02, S_L_m_per_s))
+    scale = (u_prime_m_per_s / max(0.02, S_L_m_per_s))**n_exp
+    if m_exp != 0.0:
+        scale *= (ell_turb_m / delta_L_m)**m_exp
+    S_T_m_per_s = S_L_m_per_s * (1.0 + C_t * scale)
+    return float(np.clip(S_T_m_per_s, max(S_L_m_per_s*1.05, 8.0), 60.0))
+
+# =============================================================================
+# Knock proxy (Livengood–Wu integral with a very simple ignition-delay law)
+# =============================================================================
+# tau_ignition_s ≈ A * p_bar^-n * exp(E/R/T_endgas)
+A_tau = 1.2e-3
+n_tau = 1.0
+Ea_over_R = 3800.0  # Kelvin (activation energy over R)
+def tau_ignition_s(p_bar: float, T_endgas_K: float) -> float:
+    T_endgas_K = max(300.0, T_endgas_K)
+    return A_tau * (max(p_bar, 1.0) ** (-n_tau)) * np.exp(Ea_over_R / T_endgas_K)
+
+# =============================================================================
+# MAIN: Single-zone Wiebe-based combustion model with light heat transfer
+# =============================================================================
+def combustion_Wiebe(
+    spec: EngineSpec,
+    rpm: float,
+    throttle: float,
+    ve: float,
+    fuel: FuelSpec,
+    k_turb_m2_per_s2: float = 5.0,    # turbulence intensity (from CFD or guess)
+    T_u_mean_K: float = 330.0,        # mean unburned-gas temp at SOC (if known)
+    ell_turb_m: float | None = None,  # turbulence integral length [m]
+    R_gas_J_per_kgK: float = 287.0,   # gas constant [J/(kg·K)]
+    T_ivc_K: float = 330.0,           # intake-valve-closure temp [K]
+    wiebe_a: float = 5.0, wiebe_m: float = 2.0,
+    combustion_eff: float = 0.98,     # fraction of LHV released
+    n_poly_comp: float = 1.34, n_poly_exp: float = 1.26,
+    plot: bool = True, return_dic: bool = False
+):
+    """
+    Single-cylinder cycle with:
+    - polytropic compression/expansion
+    - Wiebe heat-release window sized by a simple S_T-based timescale
+    - Woschni-lite convective heat transfer (keeps Tmax realistic)
+    - Livengood - Wu knock index (proxy)
+    """
+    # 1) Crank-angle grid [rad]
+    theta_rad = np.linspace(-np.pi, np.pi, 1441)
+    dtheta_rad = theta_rad[1] - theta_rad[0]
+    # 2) Valve events & burn window
+    IVO_rad = np.deg2rad(130.0)
+    IVC_rad = np.deg2rad(-110.0)
+    EVO_rad = np.deg2rad(110.0)
+    EVC_rad = np.deg2rad(-160.0)
+    SoC_rad = np.deg2rad(-10.0)  # start of combustion, EOC is computed later from the S_T-based duration 
+
+    idx_IVO = int(np.argmin(np.abs(theta_rad - IVO_rad)))
+    idx_IVC = int(np.argmin(np.abs(theta_rad - IVC_rad)))
+    idx_EVO = int(np.argmin(np.abs(theta_rad - EVO_rad)))
+    idx_EVC = int(np.argmin(np.abs(theta_rad - EVC_rad)))
+    # 3) Temperature-dependent cv [J/(kg·K)]
     T_knots = np.array([300, 600, 1000, 1500, 2000, 2500, 3000, 3500])
-    cv_u_knots = np.array([718, 740, 820,  900,  960, 1000, 1030, 1050])   # unburned (air-ish)
-    cv_b_knots = np.array([740, 780, 880, 1000, 1100, 1150, 1200, 1250])   # burned products
-    def cv_unburned(T):
-        T = np.clip(T, 300.0, 3500.0)
-        return np.interp(T, T_knots, cv_u_knots)
-    def cv_burned(T):
-        T = np.clip(T, 300.0, 3500.0)
-        return np.interp(T, T_knots, cv_b_knots)
-    def cv_mix(T, mfb):
-        # linear blend by mass-fraction-burned (0..1)
-        return (1.0 - mfb) * cv_unburned(T) + mfb * cv_burned(T)
-    # GEOMETRY
-    V_displacement = np.pi * (spec.bore_m**2 / 4) * spec.stroke_m
-    V_clearance = V_displacement / (spec.compression_ratio - 1)
-    crank_radius = spec.stroke_m / 2
-    crossSec = np.pi * spec.bore_m**2 / 4
-    # POSITION
-    piston_pos = crank_radius * (1 - np.cos(crank_angle)) + \
-                 crank_radius**2 / (2 * spec.conrod_m) * (1 - np.cos(2 * crank_angle))
-    V = V_clearance + crossSec * piston_pos
-    dV_dtheta = np.gradient(V, crank_angle)
-    # TRAPPED MASS
-    p_ivc = 20e3 + throttle * (100e3 - 20e3)                       # Pa
-    rho_ivc =  p_ivc / (gas_constant * T_ivc)                      # kg/m3
-    mAirpercycle = rho_ivc * V[i_ivc] * ve                         # kg/cycle
-    afr_actual = cal.get_target_AFR(rpm, fuel=fuel)
-    mAirpersec = mAirpercycle * spec.n_cylinder * rpm / 120        # All cylinders
-    mFuelpercycle = mAirpercycle / afr_actual                      # kg/cycle
-    mFuelpersec = mFuelpercycle * spec.n_cylinder * rpm / 120      # All cylinders
-    m_trapped = mAirpercycle + mFuelpercycle                       # kg/cycle
-    # COMPRESSION STROKE
-    i_soc = int(np.argmin(np.abs(crank_angle - soc_rad)))
-    V_compression = V[i_ivc:i_soc+1]
-    P_compression = (p_ivc * (V[i_ivc]/V_compression) ** n_poly_compression)
-    T_compression = (P_compression * V_compression) / (m_trapped * gas_constant)
-    # TOTAL ENERGY RELEASE
-    Q_tot = mFuelpercycle * combustion_efficiency * fuel.LHV_MJ_per_kg * 1e6
-    # COMBUSTION INITIAL STATE
-    P_current = P_compression[-1]
-    T_current = T_compression[-1]
-    p_soc = P_compression[-1]
-    T_soc = T_compression[-1]
-    phi = max(0.0, min(2.0, fuel.AFR_stoich / max(1e-6, afr_actual))) # Equivalence ratio
-    mean_piston = 2 * spec.stroke_m * rpm / 60                        # mean piston speed [m/s]
-    if k_mean is None or k_mean < 10.0:
-        c_t0 = 0.30                                                   # turbulence intensity fraction
-        c_t = c_t0 *(1 + 0.15 * mean_piston / 10)                     # intensity increase for higher speeds
-        u_prime = c_t * mean_piston                                   # u' 
-        k_mean = 1.5 * u_prime**2                                     # k = 3/2 u'^2
-    # Laminar/turbulent flame speed
-    T_u = max(300.0, T_u_mean if T_u_mean else T_soc)
-    p_u = max(8e4, p_soc)
-    S_L = laminar_speed(fuel, T_u, p_u, phi)
-    if t_length_mean is None: # Turbulence length scale
-        t_length_mean = 0.4 * spec.bore_m
-    S_T = turbulent_speed(S_L, k_mean, t_length_mean)
-    L_char = 0.26 * spec.bore_m                     # Flame travel
-    omega = rpm * 2*np.pi / 60.0                    # [rad/s]
-    tau_burn = L_char / max(0.05, S_T)              # [s]
-    theta_burn_rad = omega * tau_burn               # [rad]
+    cv_u_knots = np.array([718, 740, 820, 900, 960, 1000, 1030, 1050])   # unburned
+    cv_b_knots = np.array([740, 780, 880, 1000, 1100, 1150, 1200, 1250]) # burned
+    def cv_unburned(T_K: float) -> float:
+        T_K = np.clip(T_K, 300.0, 3500.0)
+        return np.interp(T_K, T_knots, cv_u_knots)
+    def cv_burned(T_K: float) -> float:
+        T_K = np.clip(T_K, 300.0, 3500.0)
+        return np.interp(T_K, T_knots, cv_b_knots)
+    def cv_mix(T_K: float, mfb: float) -> float:
+        # linear blend by mass fraction burned (0..1)
+        return (1.0 - mfb) * cv_unburned(T_K) + mfb * cv_burned(T_K)
+    # 4) Geometry
+    V_disp_m3 = np.pi * (spec.bore_m**2 / 4.0) * spec.stroke_m
+    V_clear_m3 = V_disp_m3 / (spec.compression_ratio - 1.0)
+    crank_radius_m = spec.stroke_m / 2.0
+    cyl_area_m2 = np.pi * spec.bore_m**2 / 4.0
+    # 5) Heat transfer helpers (Woschni-lite)
+    HT_SCALE = 0.12
+    T_wall_K = 420.0  # crude wall-temp average; adjust 380–450 K if needed
+    def gas_velocity_mean(Up_m_per_s, p_Pa, p_mot_Pa):
+        C1 = 3.5         
+        return C1 * Up_m_per_s
+    def h_woschni_W_per_m2K(p_Pa, T_K, bore_m, w_m_per_s):
+        h_nom = 3.26 * (bore_m**-0.2) * (max(p_Pa,1e5)**0.8) * (max(T_K,300)**-0.55) * (max(w_m_per_s,0.1)**0.8)
+        return HT_SCALE * h_nom
+    def area_from_volume_m2(V_m3: float, bore_m: float) -> float:
+        # Rough A ~ k * V^(2/3); choose k so near-TDC area ≈ half piston crown
+        A_piston_half = np.pi * (bore_m**2) / 2.0
+        k = A_piston_half / ((V_clear_m3 + 1e-12)**(2.0/3.0))
+        return k * (V_m3**(2.0/3.0))
+    # 6) Kinematics: volume vs crank angle
+    piston_pos_m = (crank_radius_m * (1 - np.cos(theta_rad)) + (crank_radius_m**2) / (2.0 * spec.conrod_m) * (1 - np.cos(2.0 * theta_rad)))
+    V_m3 = V_clear_m3 + cyl_area_m2 * piston_pos_m
+    dV_dtheta_m3_per_rad = np.gradient(V_m3, theta_rad)
+    # 7) Masses at IVC
+    p_ivc_Pa = 20e3 + throttle * (100e3 - 20e3)    # crude manifold → cylinder
+    rho_ivc_kg_per_m3 = p_ivc_Pa / (R_gas_J_per_kgK * T_ivc_K)
+    m_air_per_cycle_kg = rho_ivc_kg_per_m3 * V_m3[idx_IVC] * ve
+    afr_target = cal.get_target_AFR(rpm, fuel=fuel)     # actual AFR at this point
+    m_fuel_per_cycle_kg = m_air_per_cycle_kg / afr_target
+    m_trapped_kg = m_air_per_cycle_kg + m_fuel_per_cycle_kg
+    # Engine-level flows
+    cyl_per_sec = spec.n_cylinder * rpm / 120.0
+    m_air_per_s_kg = m_air_per_cycle_kg * cyl_per_sec
+    m_fuel_per_s_kg = m_fuel_per_cycle_kg * cyl_per_sec
+    # 8) Compression to SoC (polytropic)
+    idx_SOC = int(np.argmin(np.abs(theta_rad - SoC_rad)))
+    V_comp = V_m3[idx_IVC:idx_SOC+1]
+    P_comp_Pa = p_ivc_Pa * (V_m3[idx_IVC] / V_comp) ** n_poly_comp
+    T_comp_K = (P_comp_Pa * V_comp) / (m_trapped_kg * R_gas_J_per_kgK)
+
+    P_curr_Pa = P_comp_Pa[-1]
+    T_curr_K = T_comp_K[-1]
+    p_SoC_Pa = P_comp_Pa[-1]
+    T_SoC_K = T_comp_K[-1]
+
+    phi = max(0.0, min(2.0, fuel.AFR_stoich / max(1e-6, afr_target)))  # ϕ = AFR_stoich / AFR_actual
+    # turbulence
+    mean_piston_speed_m_per_s = 2.0 * spec.stroke_m * rpm / 60.0
+    if k_turb_m2_per_s2 is None or k_turb_m2_per_s2 < 10.0:
+        c_t0 = 0.30
+        c_t = c_t0 * (1 + 0.15 * mean_piston_speed_m_per_s / 10.0)
+        u_prime = c_t * mean_piston_speed_m_per_s
+        k_turb_m2_per_s2 = 1.5 * u_prime**2  # k = 3/2 u'^2
+    # 9) Flame speeds & Wiebe duration
+    T_unburned_K = max(300.0, T_u_mean_K if T_u_mean_K else T_SoC_K)
+    p_unburned_Pa = max(8e4, p_SoC_Pa)
+    S_L = laminar_speed(fuel, T_unburned_K, p_unburned_Pa, phi)
+    if ell_turb_m is None:
+        ell_turb_m = 0.4 * spec.bore_m  # simple integral scale guess
+    S_T = turbulent_speed(S_L, k_turb_m2_per_s2, ell_turb_m)
+
+    L_char_m = 0.26 * spec.bore_m                    # flame travel scale
+    omega_rad_per_s = rpm * 2.0 * np.pi / 60.0
+    tau_burn_s = L_char_m / max(0.05, S_T)           # keep a floor on S_T
+    theta_burn_rad = omega_rad_per_s * tau_burn_s
     theta_10_90_rad = 0.9 * theta_burn_rad
-    # Given a,m, compute Δθ (Wiebe duration)
-    def xi(y):  # normalized crank for MFB=y
-        return (-np.log(1.0 - y) / a)**(1.0/(m+1.0))
-    xi10, xi90 = xi(0.10), xi(0.90)
-    Delta_theta_rad = theta_10_90_rad / max(1e-6, (xi90 - xi10))
-    soc_rad = np.deg2rad(-10.0)
-    eoc_rad = soc_rad + Delta_theta_rad
-    soc_rad = np.deg2rad(-10.0)
-    eoc_rad = soc_rad + Delta_theta_rad
-    # reindex burn window with the new SOC/EOC
-    i_soc = int(np.argmin(np.abs(crank_angle - soc_rad)))
-    i_eoc = int(np.argmin(np.abs(crank_angle - eoc_rad)))
-    delta = eoc_rad - soc_rad
-    if i_eoc >= i_evo:
-        i_eoc = i_evo - 1
-        eoc_rad = crank_angle[i_eoc]
-        delta   = eoc_rad - soc_rad
-    if i_eoc <= i_soc:
-        i_eoc = min(i_soc + 3, i_evo - 1, len(crank_angle) - 2)
-        eoc_rad = crank_angle[i_eoc]
-        delta   = eoc_rad - soc_rad
-    # CA10/50/90
-    def ca_at_mfb(y):
-        x = (-np.log(1.0 - y) / a)**(1.0 / (m + 1.0))
-        return soc_rad + x * delta
-    ca10_rad = ca_at_mfb(0.10)
-    ca50_rad = ca_at_mfb(0.50)
-    ca90_rad = ca_at_mfb(0.90)
+    # map 10–90% MFB duration to Wiebe Δθ for (a,m)
+    def _xi(mfb: float) -> float:
+        return (-np.log(1.0 - mfb) / wiebe_a) ** (1.0 / (wiebe_m + 1.0))
+    xi10, xi90 = _xi(0.10), _xi(0.90)
+    denom = max(1e-9, (xi90 - xi10))                  # FIX: guard divide-by-zero
+    Delta_theta_rad = theta_10_90_rad / denom
+    # Burn window [SOC..EOC] in crank angle
+    EoC_rad = SoC_rad + Delta_theta_rad
+    idx_SOC = int(np.argmin(np.abs(theta_rad - SoC_rad)))
+    idx_EOC = int(np.argmin(np.abs(theta_rad - EoC_rad)))
+    burn_span_rad = EoC_rad - SoC_rad
+    # ensure EOC is within EVO and after SOC
+    if idx_EOC >= idx_EVO:
+        idx_EOC = idx_EVO - 1
+        EoC_rad = theta_rad[idx_EOC]
+        burn_span_rad = EoC_rad - SoC_rad
+    if idx_EOC <= idx_SOC:
+        idx_EOC = min(idx_SOC + 3, idx_EVO - 1, len(theta_rad) - 2)
+        EoC_rad = theta_rad[idx_EOC]
+        burn_span_rad = EoC_rad - SoC_rad
+    # 10/50/90 crank angles
+    def crank_at_mfb(mfb: float) -> float:
+        x = (-np.log(1.0 - mfb) / wiebe_a) ** (1.0 / (wiebe_m + 1.0))
+        return SoC_rad + x * burn_span_rad
+
+    ca10_rad = crank_at_mfb(0.10)
+    ca50_rad = crank_at_mfb(0.50)
+    ca90_rad = crank_at_mfb(0.90)
     ca10_deg, ca50_deg, ca90_deg = map(np.degrees, (ca10_rad, ca50_rad, ca90_rad))
-    # COMBUSTION
-    P_combustion, T_combustion, mfb_list = [], [], []
-    for i in range(i_soc, i_eoc):
-        theta = crank_angle[i]
-        x = (theta - soc_rad) / max(1e-12, delta)
-        x = np.clip(x, 0.0, 1.0)
-        mfb = 1.0 - np.exp(-a * x**(m+1))
-        dmfb_dtheta = a * (m+1) * x**m * np.exp(-a * x**(m+1)) / max(1e-12, delta)
-        dQ_chem = Q_tot * dmfb_dtheta * dtheta
-        dU = dQ_chem * 0.9 - P_current * (V[i+1] - V[i])  # dU = dQ - dW
-        cv_loc = cv_mix(T_current, mfb)
-        dT_combustion = dU / (m_trapped * cv_loc)
-        T_current += dT_combustion
-        V_current = V[i+1]
-        P_current = m_trapped * gas_constant * T_current / V_current
-        T_combustion.append(T_current)
-        P_combustion.append(P_current)
+    # 10) Total heat release [J]
+    Q_total_J = m_fuel_per_cycle_kg * combustion_eff * fuel.LHV_MJ_per_kg * 1e6
+    qchem_int_J = 0.0   # ∫ dQ_chem
+    qht_int_J   = 0.0   # ∫ dQ_ht
+    # 11) Combustion loop (with heat transfer & knock integral)
+    P_comb_Pa, T_comb_K, mfb_list = [], [], []
+    knock_index = 0.0
+    T_endgas_K = T_comp_K[-1]             # start with end-gas temp at SOC
+    p_endgas_bar = P_comp_Pa[-1] / 1e5
+
+    for i in range(idx_SOC, idx_EOC):
+        theta_i = theta_rad[i]
+        x_norm = np.clip((theta_i - SoC_rad) / max(1e-12, burn_span_rad), 0.0, 1.0)
+
+        mfb = 1.0 - np.exp(-wiebe_a * x_norm ** (wiebe_m + 1.0))
+        dmfb_dtheta = (wiebe_a * (wiebe_m + 1.0) * x_norm ** wiebe_m
+                       * np.exp(-wiebe_a * x_norm ** (wiebe_m + 1.0))
+                       / max(1e-12, burn_span_rad))
+
+        dQ_chem_J = Q_total_J * dmfb_dtheta * dtheta_rad
+        qchem_int_J += dQ_chem_J
+        dt_s = float(dtheta_rad / omega_rad_per_s)
+
+        # Heat transfer (Woschni-lite)
+        # FIX: index for motored pressure must be relative (i - idx_IVC), not absolute
+        j = i - idx_IVC
+        p_mot_Pa = P_comp_Pa[j] if 0 <= j < len(P_comp_Pa) else P_curr_Pa
+        w_gas_m_per_s = gas_velocity_mean(mean_piston_speed_m_per_s, P_curr_Pa, p_mot_Pa)
+        h_W_per_m2K = h_woschni_W_per_m2K(P_curr_Pa, T_curr_K, spec.bore_m, w_gas_m_per_s)
+        A_ht_m2 = area_from_volume_m2(V_m3[i], spec.bore_m)
+        Qdot_ht_W = h_W_per_m2K * A_ht_m2 * max(T_curr_K - T_wall_K, 0.0)
+        dQ_ht_J = Qdot_ht_W * dt_s
+        qht_int_J   += dQ_ht_J
+        # First law: dU = dQ_chem - dQ_ht - p dV
+        dU_J = dQ_chem_J - dQ_ht_J - P_curr_Pa * (V_m3[i+1] - V_m3[i])
+        cv_now = cv_mix(T_curr_K, mfb)  # J/(kg·K)
+        dT_K = dU_J / (m_trapped_kg * cv_now)
+        T_curr_K += dT_K
+        P_curr_Pa = m_trapped_kg * R_gas_J_per_kgK * T_curr_K / V_m3[i+1]
+
+        T_comb_K.append(T_curr_K)
+        P_comb_Pa.append(P_curr_Pa)
         mfb_list.append(mfb)
-    # EXPANSION STROKE
-    P_eoc = P_current   
-    V_eoc = V[i_eoc]
-    V_expansion = V[i_eoc:i_evo+1] 
-    P_expansion = P_eoc * (V_eoc / V_expansion) ** n_poly_expansion
-    T_expansion = P_expansion * V_expansion / (m_trapped * gas_constant)
-    # BLOWDOWN
-    blowdown_rad = crank_angle[i_evo:i_ivo+1]
-    V_blowdown = V[i_evo:i_ivo+1]
-    P_exhaust = 1.05e5
-    T_exhaust_target = 1150.0
-    V_ivo = V[i_ivo]
-    m_target = P_exhaust * V_ivo / (gas_constant * T_exhaust_target)
-    P_evo = P_expansion[-1]
-    T_evo = T_expansion[-1]
-    m_evo = m_trapped
-    omega = rpm * 2*np.pi / 60.0
-    delta_m = m_evo - m_target
-    den = max(ivo_rad - evo_rad, 1e-12)
-    alpha = np.clip((blowdown_rad - evo_rad) / den, 0.0, 1.0)
-    beta = 0.30
-    S = (1.0 - np.exp(-alpha / beta)) / (1.0 - np.exp(-1.0 / beta))
-    m_bd = m_evo - delta_m * S
-    m_bd = np.minimum.accumulate(m_bd)
-    P_bd = np.empty_like(blowdown_rad)
-    T_bd = np.empty_like(blowdown_rad)
-    T_bd[0] = T_evo
-    P_bd[0] = m_bd[0] * gas_constant * T_bd[0] / V_blowdown[0]
-    for i in range(len(blowdown_rad) - 1):
-        dtheta_k = blowdown_rad[i+1] - blowdown_rad[i]
+
+        # Knock proxy
+        gamma_u = 1.35
+        T_endgas_K *= (P_curr_Pa/1e5 / max(p_endgas_bar, 1e-3)) ** ((gamma_u - 1.0) / gamma_u)
+        p_endgas_bar = P_curr_Pa / 1e5
+        tau_s = tau_ignition_s(p_endgas_bar, T_endgas_K)
+        knock_index += dt_s / max(tau_s, 1e-9)
+    # 12) Expansion (polytropic)
+    P_eoc_Pa = P_curr_Pa
+    V_eoc_m3 = V_m3[idx_EOC]
+    V_exp = V_m3[idx_EOC:idx_EVO+1]
+    P_exp_Pa = P_eoc_Pa * (V_eoc_m3 / V_exp) ** n_poly_exp
+    T_exp_K = P_exp_Pa * V_exp / (m_trapped_kg * R_gas_J_per_kgK)
+    # 13) Blowdown (very compact unsteady mass release surrogate)
+    theta_bd = theta_rad[idx_EVO:idx_IVO+1]
+    V_bd = V_m3[idx_EVO:idx_IVO+1]
+
+    P_exhaust_Pa = 1.05e5
+    T_exhaust_target_K = 1150.0
+    V_ivo_m3 = V_m3[idx_IVO]
+    m_target_kg = P_exhaust_Pa * V_ivo_m3 / (R_gas_J_per_kgK * T_exhaust_target_K)
+
+    P_evo_Pa = P_exp_Pa[-1]
+    T_evo_K = T_exp_K[-1]
+    m_evo_kg = m_trapped_kg
+
+    omega = omega_rad_per_s
+    delta_m_kg = m_evo_kg - m_target_kg
+    den = max(IVO_rad - EVO_rad, 1e-12)
+    alpha = np.clip((theta_bd - EVO_rad) / den, 0.0, 1.0)
+    beta_shape = 0.30
+    S_rel = (1.0 - np.exp(-alpha / beta_shape)) / (1.0 - np.exp(-1.0 / beta_shape))
+    m_bd_kg = m_evo_kg - delta_m_kg * S_rel
+    m_bd_kg = np.minimum.accumulate(m_bd_kg)
+
+    P_bd_Pa = np.empty_like(theta_bd)
+    T_bd_K = np.empty_like(theta_bd)
+    T_bd_K[0] = T_evo_K
+    P_bd_Pa[0] = m_bd_kg[0] * R_gas_J_per_kgK * T_bd_K[0] / V_bd[0]
+
+    for k in range(len(theta_bd) - 1):
+        dtheta_k = theta_bd[k+1] - theta_bd[k]
         dt_k = dtheta_k / omega
-        dVdtheta_k = (V_blowdown[i+1] - V_blowdown[i]) / dtheta_k
+
+        dVdtheta_k = (V_bd[k+1] - V_bd[k]) / dtheta_k
         dVdt_k = dVdtheta_k * omega
-        dm_dtheta_k = (m_bd[i+1] - m_bd[i]) / dtheta_k
-        mdot_out_k = -dm_dtheta_k * omega
-        P_k = m_bd[i] * gas_constant * T_bd[i] / V_blowdown[i]
-        cv_bd = cv_burned(T_bd[i])
-        dTdt_k = (-P_k * dVdt_k - gas_constant * T_bd[i] * mdot_out_k) / (m_bd[i] * cv_bd)
-        T_bd[i+1] = max(300.0, T_bd[i] + dTdt_k * dt_k)
-        P_bd[i+1] = m_bd[i+1] * gas_constant * T_bd[i+1] / V_blowdown[i+1]
-    P_blowdown, T_blowdown = P_bd, T_bd
-    # DATA STORAGE
+
+        dm_dtheta_k = (m_bd_kg[k+1] - m_bd_kg[k]) / dtheta_k
+        m_dot_out_k = -dm_dtheta_k * omega
+
+        P_k = m_bd_kg[k] * R_gas_J_per_kgK * T_bd_K[k] / V_bd[k]
+        cv_bd = cv_burned(T_bd_K[k])
+        dTdt_k = (-P_k * dVdt_k - R_gas_J_per_kgK * T_bd_K[k] * m_dot_out_k) / (m_bd_kg[k] * cv_bd)
+
+        T_bd_K[k+1] = max(300.0, T_bd_K[k] + dTdt_k * dt_k)
+        P_bd_Pa[k+1] = m_bd_kg[k+1] * R_gas_J_per_kgK * T_bd_K[k+1] / V_bd[k+1]
+    # 14) Assemble traces for plotting / metrics
     df = pd.DataFrame({
-        'Crank Angle (deg)': np.degrees(crank_angle),
-        'Volume (m3)': V,
-        'dVdtheta (m3/rad)': dV_dtheta,
-        'Pressure (bar)': np.nan,
-        'Temperature (K)':  np.nan,
-        'Mass Fraction Burned': np.nan
+        "Crank Angle (deg)": np.degrees(theta_rad),
+        "Volume (m3)": V_m3,
+        "dVdtheta (m3/rad)": dV_dtheta_m3_per_rad,
+        "Pressure (bar)": np.nan,
+        "Temperature (K)": np.nan,
+        "Mass Fraction Burned": np.nan
     })
-    df.loc[i_ivc:i_soc, 'Pressure (bar)'] = P_compression / 1e5
-    df.loc[i_soc:i_eoc - 1, 'Pressure (bar)'] = np.array(P_combustion) / 1e5
-    df.loc[i_eoc:i_evo, 'Pressure (bar)'] = P_expansion / 1e5
-    df.loc[i_evo:i_ivo, 'Pressure (bar)'] = P_blowdown / 1e5
-    df.loc[i_ivc:i_soc, 'Temperature (K)']  = T_compression
-    df.loc[i_soc:i_eoc - 1, 'Temperature (K)']  = np.array(T_combustion)
-    df.loc[i_eoc:i_evo, 'Temperature (K)']  = T_expansion
-    df.loc[i_evo:i_ivo, 'Temperature (K)']  = T_blowdown
-    df.loc[i_soc:i_eoc - 1, 'Mass Fraction Burned'] = np.array(mfb_list)
-    # p–V + IMEP
-    P_pa = (df['Pressure (bar)'].to_numpy() * 1e5)
-    V_m3 = df['Volume (m3)'].to_numpy()
-    mask = ~np.isnan(P_pa)
-    W_cyl = np.trapezoid(P_pa[mask], V_m3[mask])
-    imep_gross = W_cyl / V_displacement
-    fmep = (0.8 + 0.00050 * mean_piston + 0.00550 * (mean_piston) ** 2) * 1e5
-    pmep = (0.03 + 0.000035 * rpm) * 1e5
-    bmep = imep_gross - fmep - pmep
-    Vd_total = V_displacement * spec.n_cylinder
-    Torque_Nm = bmep * Vd_total / (4*np.pi)  # 4π for 4-stroke
-    omega = rpm * 2*np.pi / 60.0
-    Power_kW = Torque_Nm * omega / 1000.0
-    bsfc = mFuelpersec * 3600 / max(Power_kW, 1e-9)
-    # PLOTTING
+
+    df.loc[idx_IVC:idx_SOC, "Pressure (bar)"] = P_comp_Pa / 1e5
+    df.loc[idx_SOC:idx_EOC-1, "Pressure (bar)"] = np.array(P_comb_Pa) / 1e5
+    df.loc[idx_EOC:idx_EVO, "Pressure (bar)"] = P_exp_Pa / 1e5
+    df.loc[idx_EVO:idx_IVO, "Pressure (bar)"] = P_bd_Pa / 1e5
+    df.loc[idx_IVC:idx_SOC, "Temperature (K)"] = T_comp_K
+    df.loc[idx_SOC:idx_EOC-1, "Temperature (K)"] = np.array(T_comb_K)
+    df.loc[idx_EOC:idx_EVO, "Temperature (K)"] = T_exp_K
+    df.loc[idx_EVO:idx_IVO, "Temperature (K)"] = T_bd_K
+    df.loc[idx_SOC:idx_EOC-1, "Mass Fraction Burned"] = np.array(mfb_list)
+    # 15) Work/IMEP/BMEP/Torque/Power
+    P_Pa = (df["Pressure (bar)"].to_numpy() * 1e5)
+    V_curve = df["Volume (m3)"].to_numpy()
+    mask = ~np.isnan(P_Pa)
+    W_cyc_J = np.trapezoid(P_Pa[mask], V_curve[mask])  # area under p–V
+    imep_gross_Pa = W_cyc_J / V_disp_m3
+    burn_10_90_deg = float(np.degrees(ca90_rad - ca10_rad))
+    w_ind_J_per_cycle = float(W_cyc_J)
+    eta_ind_pct = 100.0 * w_ind_J_per_cycle / max(Q_total_J, 1e-12)   # indicated efficiency [%]
+
+    # simple friction & pumping maps (SI units)
+    fmep_Pa = (0.8 + 0.00050 * mean_piston_speed_m_per_s + 0.00550 * (mean_piston_speed_m_per_s)**2) * 1e5
+    pmep_Pa = (0.03 + 0.000035 * rpm) * 1e5
+    bmep_Pa = imep_gross_Pa - fmep_Pa - pmep_Pa
+
+    Vd_total_m3 = V_disp_m3 * spec.n_cylinder
+    torque_Nm = bmep_Pa * Vd_total_m3 / (4.0 * np.pi)  # 4π for 4-stroke
+    power_kW = torque_Nm * (omega_rad_per_s) / 1000.0
+    bsfc_g_per_kWh = (m_fuel_per_s_kg * 3600.0 * 1000.0) / max(power_kW, 1e-12)
+    # 16) Optional plots
     if plot:
         plt.figure()
-        plt.plot(V_m3[mask], P_pa[mask]/1e5)
-        plt.xlabel('Volume [m³]'); plt.ylabel('Pressure [bar]')
-        plt.title('p–V Loop (single cylinder)'); plt.grid(True); plt.show()
+        plt.plot(V_curve[mask], P_Pa[mask]/1e5)
+        plt.xlabel("Volume [m³]"); plt.ylabel("Pressure [bar]")
+        plt.title("p–V Loop (single cylinder)"); plt.grid(True); plt.show()
 
         plt.figure(figsize=(10,6))
+        # Pressure trace
         plt.subplot(3,1,1)
-        plt.plot(df['Crank Angle (deg)'], df['Pressure (bar)'])
-        for ca_deg, label in [(np.degrees(ca10_rad),'CA10'),
-                              (np.degrees(ca50_rad),'CA50'),
-                              (np.degrees(ca90_rad),'CA90')]:
-            plt.axvline(ca_deg, ls='--', lw=1, c='k', alpha=0.7)
-            ymax = plt.gca().get_ylim()[1]; plt.text(ca_deg, 0.95*ymax, label,
-                                                     rotation=90, va='top', ha='right', fontsize=9)
-        plt.ylabel('Pressure [bar]'); plt.grid(True)
+        plt.plot(df["Crank Angle (deg)"], df["Pressure (bar)"])
+        for ca_deg, label in [(np.degrees(ca10_rad), "CA10"),
+                              (np.degrees(ca50_rad), "CA50"),
+                              (np.degrees(ca90_rad), "CA90")]:
+            plt.axvline(ca_deg, ls="--", lw=1, c="k", alpha=0.7)
+            ymax = plt.gca().get_ylim()[1]
+            plt.text(ca_deg, 0.95*ymax, label, rotation=90, va="top", ha="right", fontsize=9)
+        plt.ylabel("Pressure [bar]"); plt.grid(True)
 
+        # Temperature trace
         plt.subplot(3,1,2)
-        plt.plot(df['Crank Angle (deg)'], df['Temperature (K)'])
+        plt.plot(df["Crank Angle (deg)"], df["Temperature (K)"])
         for ca_deg in (np.degrees(ca10_rad), np.degrees(ca50_rad), np.degrees(ca90_rad)):
-            plt.axvline(ca_deg, ls='--', lw=1, c='k', alpha=0.5)
-        plt.ylabel('Temperature [K]'); plt.grid(True)
+            plt.axvline(ca_deg, ls="--", lw=1, c="k", alpha=0.5)
+        plt.ylabel("Temperature [K]"); plt.grid(True)
 
+        # Burn fraction
         plt.subplot(3,1,3)
-        plt.plot(df['Crank Angle (deg)'], df['Mass Fraction Burned'])
+        plt.plot(df["Crank Angle (deg)"], df["Mass Fraction Burned"])
         for ca_deg in (np.degrees(ca10_rad), np.degrees(ca50_rad), np.degrees(ca90_rad)):
-            plt.axvline(ca_deg, ls='--', lw=1, c='k', alpha=0.5)
-        for y in (0.10, 0.50, 0.90): plt.axhline(y, ls=':', lw=1, c='gray', alpha=0.6)
+            plt.axvline(ca_deg, ls="--", lw=1, c="k", alpha=0.5)
+        for y in (0.10, 0.50, 0.90): plt.axhline(y, ls=":", lw=1, c="gray", alpha=0.6)
         plt.plot([np.degrees(ca10_rad), np.degrees(ca50_rad), np.degrees(ca90_rad)],
-                 [0.10, 0.50, 0.90], 'ko', ms=4)
-        plt.xlabel('Crank Angle [deg]'); plt.ylabel('MFB [-]'); plt.grid(True)
+                 [0.10, 0.50, 0.90], "ko", ms=4)
+        plt.xlabel("Crank Angle [deg]"); plt.ylabel("MFB [-]"); plt.grid(True)
         plt.tight_layout(); plt.show()
         return
-
-    # RESULTS
     if return_dic:
-        out = {
-            "imep_gross_pa": imep_gross,
-            "bmep_pa": bmep,
-            "fmep_pa": fmep,
-            "pmep_pa": pmep,
-            "torque_nm": Torque_Nm,
-            "power_kw": Power_kW,
-            "m_air_per_cycle": mAirpercycle,    # per cyl, per cycle
-            "m_fuel_per_cycle": mFuelpercycle,  # per cyl, per cycle
-            "ca10_deg": ca10_deg,
-            "ca50_deg": ca50_deg,
-            "ca90_deg": ca90_deg,
-            "pmax_bar": np.nanmax(df['Pressure (bar)'].to_numpy()),
-            "tmax_k":   np.nanmax(df['Temperature (K)'].to_numpy()),
-            "S_L_mps": float(S_L),
-            "S_T_mps": float(S_T),
-            "Delta_theta_deg": float(np.degrees(Delta_theta_rad)),
-            "soc_deg": float(np.degrees(soc_rad)),
-            "eoc_deg": float(np.degrees(eoc_rad)),
-            "phi": float(phi),
-            "k_mean": float(k_mean),
-            "ell_t_m": float(t_length_mean),
-            "T_u_K": float(T_u),
-            "p_u_bar": float(p_u / 1e5),
-        }
-        return out
+        return {
+        # performance / work
+        "imep_gross_pa":        float(imep_gross_Pa),
+        "bmep_pa":              float(bmep_Pa),
+        "fmep_pa":              float(fmep_Pa),
+        "pmep_pa":              float(pmep_Pa),
+        "torque_nm":            float(torque_Nm),
+        "power_kw":             float(power_kW),
+        "bsfc_g_per_kwh":       float(bsfc_g_per_kWh),
 
+        # mass (per cycle, per cylinder)
+        "m_air_per_cycle_kg":   float(m_air_per_cycle_kg),
+        "m_fuel_per_cycle_kg":  float(m_fuel_per_cycle_kg),
+
+        # mixture / timings
+        "lambda":               float(1 / phi),
+        "phi":                  float(phi),
+        "ca10_deg":             float(ca10_deg),
+        "ca50_deg":             float(ca50_deg),
+        "ca90_deg":             float(ca90_deg),
+        "soc_deg":              float(np.degrees(SoC_rad)),
+        "eoc_deg":              float(np.degrees(EoC_rad)),
+        "burn_10_90_deg":       float(burn_10_90_deg),
+
+        # in-cylinder peaks
+        "pmax_bar":             float(np.nanmax(df["Pressure (bar)"].to_numpy())),
+        "tmax_k":               float(np.nanmax(df["Temperature (K)"].to_numpy())),
+
+        # flame speeds
+        "S_L_m_per_s":          float(S_L),
+        "S_T_m_per_s":          float(S_T),
+
+        # turbulence / end-gas state used for correlations
+        "k_turb_m2_per_s2":     float(k_turb_m2_per_s2),
+        "ell_turb_m":           float(ell_turb_m),
+        "T_unburned_K":         float(T_unburned_K),
+        "p_unburned_bar":       float(p_unburned_Pa / 1e5),
+
+        # knock proxy
+        "knock_index":          float(knock_index),
+
+        # energy accounting (per cycle, per cylinder)
+        "q_chem_kj_per_cycle":  float(qchem_int_J / 1000.0),
+        "q_ht_kj_per_cycle":    float(qht_int_J   / 1000.0),
+        "w_ind_kj_per_cycle":   float(w_ind_J_per_cycle / 1000.0),
+        "eta_ind_percent":      float(eta_ind_pct),
+    }
 #%% EMISSIONS (kept as-is)
 def estimate_Emissions(mDotFuel, AFR, eff):
     """
