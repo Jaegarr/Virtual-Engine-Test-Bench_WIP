@@ -142,10 +142,19 @@ def FullRangeSweep(spec:EngineSpec,
 def DesignComparison():
     return
 '''
-'''
-print(RunPoint(spec = Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel=Fuels.get("Gasoline"),rpm=3000, throttle=1))
-print(RunPoint(spec = Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel=Fuels.get("H2"),rpm=3000, throttle=1))
-print(RunPoint(spec = Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel=Fuels.get("NH3"),rpm=3000, throttle=1))
-'''
-blend = blend_H2_NH3(0.7)
-print(RunPoint(spec = Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel= blend,rpm=3000, throttle=1))
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# ---- paste your rows here (fuel, lambda, imep) ----
+rows = [
+    ("Ammonia", 0.8, 14.72), ("Ammonia", 0.9, 13.49), ("Ammonia", 1.0, 12.82),
+    ("Ammonia", 1.1, 10.82), ("Ammonia", 1.2, 9.48), ("Ammonia", 1.3, 8.81), ("Ammonia", 1.5, 7.73),
+    ("Gasoline", 0.8, 15.45), ("Gasoline", 0.9, 14.00), ("Gasoline", 1.0, 13.35),
+    ("Gasoline", 1.1, 11.59), ("Gasoline", 1.2, 10.46), ("Gasoline", 1.3, 8.93), ("Gasoline", 1.5, 7.85),
+    ("Hydrogen", 0.8, 18.21), ("Hydrogen", 0.9, 16.43), ("Hydrogen", 1.0, 15.67),
+    ("Hydrogen", 1.1, 13.78), ("Hydrogen", 1.2, 12.76), ("Hydrogen", 1.3, 11.76), ("Hydrogen", 1.5, 10.37),
+    ("Hydrogen&Ammonia(10%w Hydrogen)", 0.8, 16.91), ("Hydrogen&Ammonia(10%w Hydrogen)", 0.9, 15.33),
+    ("Hydrogen&Ammonia(10%w Hydrogen)", 1.0, 13.91), ("Hydrogen&Ammonia(10%w Hydrogen)", 1.1, 12.65),
+    ("Hydrogen&Ammonia(10%w Hydrogen)", 1.2, 11.37), ("Hydrogen&Ammonia(10%w Hydrogen)", 1.3, 9.63),
+    ("Hydrogen&Ammonia(10%w Hydrogen)", 1.5, 8.46),
+]

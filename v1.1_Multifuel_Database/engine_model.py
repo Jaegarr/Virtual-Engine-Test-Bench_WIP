@@ -143,7 +143,8 @@ def combustion_Wiebe( spec: EngineSpec,
         return (-np.log(1.0 - y) / a)**(1.0/(m+1.0))
     xi10, xi90 = xi(0.10), xi(0.90)
     Delta_theta_rad = theta_10_90_rad / max(1e-6, (xi90 - xi10))
-    # Set SOC/EOC via Δθ, then reindex + clamp so SOC < EOC < EVO
+    soc_rad = np.deg2rad(-10.0)
+    eoc_rad = soc_rad + Delta_theta_rad
     soc_rad = np.deg2rad(-10.0)
     eoc_rad = soc_rad + Delta_theta_rad
     # reindex burn window with the new SOC/EOC

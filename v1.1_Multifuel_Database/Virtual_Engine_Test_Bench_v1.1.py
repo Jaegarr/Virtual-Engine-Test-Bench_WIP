@@ -84,25 +84,25 @@ while True:
     if selection == '1':
         fuel = Fuels.get("Gasoline")
         break
-    if selection == '2':
+    elif selection == '2':
         fuel = Fuels.get("Ethanol")
         break
-    if selection == '3':
+    elif selection == '3':
         fuel = Fuels.get("Methanol")
         break
-    if selection == '4':
+    elif selection == '4':
         fuel = Fuels.get("H2")
         break
-    if selection == '5':
+    elif selection == '5':
         fuel = Fuels.get("NH3")
         break
-    '''
-    if selection == '6':
-    if selection == '7':
-    if selection == '8':
     else:
         print("Invalid choice.")
-'''
+    '''
+    elif selection == '6':
+    elif selection == '7':
+    elif selection == '8':
+    '''
 #%% TEST SELECTION
 # SPEC CHECK
 if 'spec' not in globals() or getattr(spec, 've_table', None) is None:
