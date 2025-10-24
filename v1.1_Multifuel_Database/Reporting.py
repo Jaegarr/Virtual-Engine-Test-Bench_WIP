@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 def to_legacy(df: pd.DataFrame) -> pd.DataFrame:
     out = pd.DataFrame({
-        'Engine Speed(RPM)': df['RPM'],
+        'Engine Speed (RPM)': df['RPM'],
         'Throttle':          df['Throttle'],
         'Lambda':            df.get('lambda',      np.nan),
         'Torque (Nm)':        df['Torque_Nm'],
@@ -91,13 +91,13 @@ def rpm_vs_plots(df):
         fig, ax1 = plt.subplots()
         plt.grid(True)
         ax1.set_ylabel('Power (kW)')
-        ax1.plot(df['Engine Speed(RPM)'], df['Power(kW)'], label = 'Power', color = 'red')
+        ax1.plot(df['Engine Speed (RPM)'], df['Power (kW)'], label = 'Power', color = 'red')
         ax1.set_ylim(0, 240)
         ax1.set_yticks(np.arange(0, 240, 20))
         ax2 = ax1.twinx()
-        ax2.set_xlabel('Engine Speed(RPM)')
+        ax2.set_xlabel('Engine Speed (RPM)')
         ax2.set_ylabel('Torque (Nm)')
-        ax2.plot(df['Engine Speed(RPM)'], df['Torque(Nm)'], label = 'Torque', color = 'blue')
+        ax2.plot(df['Engine Speed (RPM)'], df['Torque (Nm)'], label = 'Torque', color = 'blue')
         ax2.set_ylim(0, 600)
         ax2.set_yticks(np.arange(0,600,50))
         ax1.set_title('Torque & Power Curves — WOT')

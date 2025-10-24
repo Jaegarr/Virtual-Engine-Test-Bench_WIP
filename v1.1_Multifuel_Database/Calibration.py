@@ -3,7 +3,7 @@ import numpy as np
 from Fuel_Database import Fuels, FuelSpec
 from scipy.interpolate import RegularGridInterpolator
 # Simplified target lambda map by RPM (could be replaced by a CSV/config)
-lambda_target_map = pd.DataFrame({ 'RPM': [1000, 2000, 3000, 4000, 5000, 6000, 7000], 'Lambda': [1.05, 1.0, 0.95, 0.90, 0.88, 0.88, 0.88]})  #1.0, 1.0, 0.95, 0.92, 0.90, 0.88, 0.88
+lambda_target_map = pd.DataFrame({ 'RPM': [1000, 2000, 3000, 4000, 5000, 6000, 7000], 'Lambda': [0.96, 0.94, 0.92, 0.90, 0.88, 0.88, 0.88]})  #1.0, 1.0, 0.95, 0.92, 0.90, 0.88, 0.88
 def get_target_AFR(rpm: float,
                    fuel: FuelSpec,
                    lambda_table: dict = lambda_target_map) -> float:

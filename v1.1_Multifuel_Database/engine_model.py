@@ -35,7 +35,7 @@ def turbulent_speed(
     k_turb_m2_per_s2: float,  # turbulent kinetic energy k [m^2/s^2]
     ell_turb_m: float,        # turbulence integral length [m]
     nu_kinematic_m2_per_s: float = 1.7e-5,  # (unused placeholder)
-    C_t: float = 1.5,
+    C_t: float = 2.0,
     n_exp: float = 1.0,
     m_exp: float = 0.3
 ) -> float:
@@ -87,6 +87,8 @@ def combustion_Wiebe(
     wiebe_a: float = 5.0, wiebe_m: float = 2.0,
     combustion_eff: float = 0.98,     # fraction of LHV released
     n_poly_comp: float = 1.34, n_poly_exp: float = 1.26,
+    soc_offset_deg: float = 0.0,      
+    fmep_offset_Pa: float = 0.0,      
     plot: bool = True, return_dic: bool = False
 ):
     """
@@ -104,7 +106,7 @@ def combustion_Wiebe(
     IVC_rad = np.deg2rad(-110.0)
     EVO_rad = np.deg2rad(110.0)
     EVC_rad = np.deg2rad(-160.0)
-    SoC_rad = np.deg2rad(-10.0)  # start of combustion, EOC is computed later from the S_T-based duration 
+    SoC_rad = np.deg2rad(-8.0 + soc_offset_deg)  # start of combustion, EOC is computed later from the S_T-based duration 
 
     idx_IVO = int(np.argmin(np.abs(theta_rad - IVO_rad)))
     idx_IVC = int(np.argmin(np.abs(theta_rad - IVC_rad)))
@@ -129,7 +131,7 @@ def combustion_Wiebe(
     crank_radius_m = spec.stroke_m / 2.0
     cyl_area_m2 = np.pi * spec.bore_m**2 / 4.0
     # 5) Heat transfer helpers (Woschni-lite)
-    HT_SCALE = 0.06
+    HT_SCALE = 0.05
     T_wall_K = 520.0  
     def gas_velocity_mean(Up_m_per_s, p_Pa, p_mot_Pa):
         C1 = 3.5         
@@ -184,7 +186,7 @@ def combustion_Wiebe(
         ell_turb_m = 0.4 * spec.bore_m  # simple integral scale guess
     S_T = turbulent_speed(S_L, k_turb_m2_per_s2, ell_turb_m)
 
-    L_char_m = 0.2 * spec.bore_m                    # flame travel scale
+    L_char_m = 0.26 * spec.bore_m                    # flame travel scale
     omega_rad_per_s = rpm * 2.0 * np.pi / 60.0
     tau_burn_s = L_char_m / max(0.05, S_T)           # keep a floor on S_T
     theta_burn_rad = omega_rad_per_s * tau_burn_s
@@ -347,7 +349,7 @@ def combustion_Wiebe(
     eta_ind_pct = 100.0 * w_ind_J_per_cycle / max(Q_total_J, 1e-12)   # indicated efficiency [%]
 
     # simple friction & pumping maps (SI units)
-    fmep_Pa = (0.5 + 0.0003 * mean_piston_speed_m_per_s + 0.0022 * (mean_piston_speed_m_per_s)**2) * 1e5
+    fmep_Pa = ((0.2 + 0.00055 * mean_piston_speed_m_per_s + 0.005 * (mean_piston_speed_m_per_s)**2) * 1e5 + fmep_offset_Pa)
     pmep_Pa = (0.03 + 0.000007 * rpm) * 1e5
     bmep_Pa = imep_gross_Pa - fmep_Pa - pmep_Pa
 
@@ -440,7 +442,7 @@ def combustion_Wiebe(
         "w_ind_kj_per_cycle":   float(w_ind_J_per_cycle / 1000.0),
         "eta_ind_percent":      float(eta_ind_pct),
     }
-#%% EMISSIONS (kept as-is)
+#%% EMISSIONS
 def estimate_Emissions(mDotFuel, AFR, eff):
     """
     Rough estimate of emissions based on fuel mass flow and AFR.
