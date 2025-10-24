@@ -1,10 +1,10 @@
 import pandas as pd
 import Calibration as cal
 from engine_model import  combustion_Wiebe, estimate_Emissions
-from Engine_Database import EngineSpec
-from Fuel_Database import FuelSpec
+from Engine_Database import EngineSpec, Engines
+from Fuel_Database import FuelSpec, Fuels, blend_H2_NH3
 from typing import Optional, Iterable
-from Grey_Box import GPResidualCorrector
+'''from Grey_Box import GPResidualCorrector'''
 
 def RunPoint(spec: EngineSpec, 
              fuel: FuelSpec,  
@@ -142,3 +142,10 @@ def FullRangeSweep(spec:EngineSpec,
 def DesignComparison():
     return
 '''
+'''
+print(RunPoint(spec = Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel=Fuels.get("Gasoline"),rpm=3000, throttle=1))
+print(RunPoint(spec = Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel=Fuels.get("H2"),rpm=3000, throttle=1))
+print(RunPoint(spec = Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel=Fuels.get("NH3"),rpm=3000, throttle=1))
+'''
+blend = blend_H2_NH3(0.7)
+print(RunPoint(spec = Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel= blend,rpm=3000, throttle=1))

@@ -1,3 +1,4 @@
+'''
 from __future__ import annotations
 import json
 import numpy as np
@@ -8,31 +9,18 @@ from engine_model import combustion_Wiebe
 from Engine_Database import EngineSpec
 from Fuel_Database import FuelSpec
 
-# ---------------------------
-# Utilities: piecewise-linear
-# ---------------------------
-
 @dataclass
 class PLin:
     """Piecewise-linear function y(x) defined on fixed knots."""
     knots_x: np.ndarray  # shape (K,)
     values_y: np.ndarray # shape (K,)
-
     def __call__(self, x: np.ndarray | float) -> np.ndarray | float:
         return np.interp(x, self.knots_x, self.values_y)
-
     @staticmethod
     def from_theta(knots_x: Sequence[float], coeffs: Sequence[float]) -> "PLin":
         return PLin(np.asarray(knots_x, float), np.asarray(coeffs, float))
-
     def as_dict(self) -> Dict[str, list]:
         return {"knots_rpm": self.knots_x.tolist(), "values": self.values_y.tolist()}
-
-
-# ---------------------------
-# Packing / bounds / penalty
-# ---------------------------
-
 @dataclass
 class KnobParam:
     """Holds the 3 knob curves and their bounds."""
@@ -215,17 +203,16 @@ def load_knobs_json(path: str) -> Tuple[PLin, PLin, PLin]:
     def to_pl(d: Dict[str, list]) -> PLin:
         return PLin(np.asarray(d["knots_rpm"], float), np.asarray(d["values"], float))
     return to_pl(data["soc_shift_deg"]), to_pl(data["duration_scale"]), to_pl(data["fmep_offset_pa"])
-# Runtime hook (optional)
+# Runtime
 class GreyBoxRuntime:
     """Cache of loaded knob curves for fast lookup at runtime."""
     def __init__(self, soc_pl: PLin, dur_pl: PLin, fm_pl: PLin):
         self.soc = soc_pl
         self.dur = dur_pl
         self.fm  = fm_pl
-
     @classmethod
     def from_json(cls, path: str) -> "GreyBoxRuntime":
         return cls(*load_knobs_json(path))
-
     def at_rpm(self, rpm: float) -> Tuple[float, float, float]:
         return float(self.soc(rpm)), float(self.dur(rpm)), float(self.fm(rpm))
+        '''

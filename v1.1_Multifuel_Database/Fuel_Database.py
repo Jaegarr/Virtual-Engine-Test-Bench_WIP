@@ -1,5 +1,6 @@
 import numpy as np
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Dict, Optional, List, Callable, Tuple
 O2_mass_fraction_in_air = 0.233  # mass fraction of O2 in dry air
 @dataclass
@@ -228,59 +229,29 @@ def blend_gasoline_methanol(vM: float) -> FuelSpec:
         phi_minmax=None
     )
 #  H2–NH3 BLENDING (mass / energy)
-def blend_H2_NH3(w_H2: float) -> Dict[str, float]:
+def blend_H2_NH3(w_H2: float):
     """
     Blend H2 and NH3 by MASS fraction (0..1) and compute effective properties.
-    Returns a dict of key parameters.
     """
     w_H2 = float(np.clip(w_H2, 0.0, 1.0))
     H2  = Fuels.get("H2")
     NH3 = Fuels.get("NH3")
-    O2_req = w_H2 * H2.O2_req_per_kg + (1 - w_H2) * NH3.O2_req_per_kg
-    AFR = O2_req / O2_mass_fraction_in_air
-    LHV = w_H2 * H2.LHV_MJ_per_kg + (1 - w_H2) * NH3.LHV_MJ_per_kg
-    SL  = (1 - w_H2) * NH3.S_L_300K_m_per_s + w_H2 * H2.S_L_300K_m_per_s
-    gamma_300 = (1 - w_H2) * NH3.gamma_u(300) + w_H2 * H2.gamma_u(300)
-    return {
-        "w_H2": w_H2,
-        "LHV_MJ_per_kg": LHV,
-        "AFR_stoich": AFR,
-        "O2_req_per_kg": O2_req,
-        "S_L_300K_m_per_s": SL,
-        "gamma_300": gamma_300,
-    }
-def mass_fraction_from_energy_fraction(x_e_H2: float) -> float:
-    """
-    Convert hydrogen ENERGY fraction (fraction of fuel energy from H2) -> MASS fraction of H2.
-    """
-    x_e_H2 = float(np.clip(x_e_H2, 0.0, 1.0))
-    H2  = Fuels.get("H2")
-    NH3 = Fuels.get("NH3")
-    inv_e_H2  = 1.0 / H2.LHV_MJ_per_kg
-    inv_e_NH3 = 1.0 / NH3.LHV_MJ_per_kg
-    return (x_e_H2 * inv_e_H2) / (x_e_H2 * inv_e_H2 + (1 - x_e_H2) * inv_e_NH3)
-def build_H2_NH3_blend_from_energy(x_e_H2: float) -> FuelSpec:
-    """
-    Build a FuelSpec for an H2–NH3 blend from an ENERGY fraction of H2 (0..1).
-    """
-    x_e_H2 = float(np.clip(x_e_H2, 0.0, 1.0))
-    w_H2 = mass_fraction_from_energy_fraction(x_e_H2)
-    mix = blend_H2_NH3(w_H2)
-    H2  = Fuels.get("H2"); NH3 = Fuels.get("NH3")
-    return FuelSpec(
-        name=f"H2–NH3 ({int(round(x_e_H2*100))}% H2 energy)",
-        LHV_MJ_per_kg=mix["LHV_MJ_per_kg"],
-        O2_req_per_kg=mix["O2_req_per_kg"],
-        AFR_stoich=mix["AFR_stoich"],
-        MW_g_per_mol= w_H2*H2.MW_g_per_mol + (1-w_H2)*NH3.MW_g_per_mol,
-        rho_gas_kg_per_m3= w_H2*H2.rho_gas_kg_per_m3 + (1-w_H2)*NH3.rho_gas_kg_per_m3,
-        flam_limits_volpct=(min(H2.flam_limits_volpct[0], NH3.flam_limits_volpct[0]),
-                            max(H2.flam_limits_volpct[1], NH3.flam_limits_volpct[1])),
-        S_L_300K_m_per_s=mix["S_L_300K_m_per_s"],
-        T_autoign_K= w_H2*H2.T_autoign_K + (1-w_H2)*NH3.T_autoign_K,
-        gamma_u_func=lambda T: (w_H2*H2.gamma_u(T) + (1-w_H2)*NH3.gamma_u(T)),
-        # wide φ range thanks to H2; feel free to tune
-        phi_peak=1.0, phi_width=0.6, alpha_T=2.1, beta_p=-0.25, phi_minmax=(0.3, 2.2),
+    O2_req = w_H2 * H2.O2_req_per_kg + (1.0 - w_H2) * NH3.O2_req_per_kg
+    AFR_st = O2_req / O2_mass_fraction_in_air
+    LHV = w_H2 * H2.LHV_MJ_per_kg + (1.0 - w_H2) * NH3.LHV_MJ_per_kg
+    SL = (1.0 - w_H2) * NH3.S_L_300K_m_per_s + w_H2 * H2.S_L_300K_m_per_s
+
+    gamma_300 = (1.0 - w_H2) * NH3.gamma_u(300) + w_H2 * H2.gamma_u(300)
+    def gamma_u(T):
+        # minimal stub: keep it constant for PoC
+        return gamma_300
+    return SimpleNamespace(
+        name=f"Blend_{int((1.0-w_H2)*100)}NH3_{int(w_H2*100)}H2",
+        AFR_stoich=AFR_st,
+        O2_req_per_kg=O2_req,
+        LHV_MJ_per_kg=LHV,
+        S_L_300K_m_per_s=SL,
+        gamma_u=gamma_u,
     )
 # EMISSIONS: CO2 EMISSION INDEX (g/kg FUEL) HELPER
 def ei_co2_g_per_kg_for(fuel: FuelSpec) -> float:
