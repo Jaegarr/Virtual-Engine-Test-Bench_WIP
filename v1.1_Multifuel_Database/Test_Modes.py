@@ -4,7 +4,24 @@ from engine_model import  combustion_Wiebe, estimate_Emissions
 from Engine_Database import EngineSpec
 from Fuel_Database import FuelSpec
 from typing import Optional, Iterable
+import torch
+from ML_Correction import MLPCorrection
+import json
+import os
 
+USE_ML_CORRECTION = True # MAGIC BUTTON
+
+def load_correction_model(model_path, meta_path):
+    with open(meta_path, 'r') as f:
+        meta = json.load(f)
+    model = MLPCorrection(with_vvl_flag=meta.get("with_vvl_flag", True))
+    model.load_state_dict(torch.load(model_path))
+    model.eval()  # set to inference mode
+    return model
+ml_model = load_correction_model(
+    r'C:\Users\berke\OneDrive\Masaüstü\GitHub\Virtual-Engine-Test-Bench\v1.1_Multifuel_Database\mlp_correction.pt',
+    r'C:\Users\berke\OneDrive\Masaüstü\GitHub\Virtual-Engine-Test-Bench\v1.1_Multifuel_Database\mlp_correction_meta.json'
+)
 def RunPoint(spec: EngineSpec, 
              fuel: FuelSpec,  
              rpm: int, 
@@ -22,17 +39,27 @@ def RunPoint(spec: EngineSpec,
     if not isinstance(table, pd.DataFrame):
         raise TypeError(f"spec.ve_table must be a pandas DataFrame, got {type(table)}")
     ve = float(cal.get_ve_from_table(rpm, throttle, table))
-
+    fmep_offset_Pa, soc_offset_deg = 0.0, 0.0
+    if USE_ML_CORRECTION:
+        vvl_flag = 1.0 if rpm >= 4500 else 0.0
+        fmep_offset_bar, soc_offset_deg = ml_model(rpm, vvl_flag)
+    fmep_offset_Pa = float(fmep_offset_bar) * 1e5         # <- convert here
+    if hasattr(fmep_offset_Pa, "detach"):
+        fmep_offset_Pa = float(fmep_offset_Pa.detach().cpu().numpy()) * 1e5 if abs(float(fmep_offset_Pa)) < 10 else float(fmep_offset_Pa)
+    if hasattr(soc_offset_deg, "detach"):
+        soc_offset_deg = float(soc_offset_deg.detach().cpu().numpy())
     # --- Combustion ---
     if analyze is True:
         combustion_Wiebe(
-            spec=spec, fuel=fuel, rpm=rpm, throttle=throttle, ve=ve,
+            spec=spec, fuel=fuel, rpm=rpm, throttle=throttle, ve=ve, 
+            soc_offset_deg = soc_offset_deg, fmep_offset_Pa = fmep_offset_Pa,
             plot=True, return_dic=False, **combustion_kwargs
         )
         return  # plotting-only path
 
     res = combustion_Wiebe(
         spec=spec, fuel=fuel, rpm=rpm, throttle=throttle, ve=ve,
+        soc_offset_deg = soc_offset_deg, fmep_offset_Pa = fmep_offset_Pa,
         plot=False, return_dic=True, **combustion_kwargs
     )
     if not isinstance(res, dict):
@@ -181,3 +208,8 @@ def FullRangeSweep(spec:EngineSpec,
 def DesignComparison():
     return
 '''
+print("USE_ML_CORRECTION =", USE_ML_CORRECTION)
+print("Model loaded:", any(p.requires_grad for p in ml_model.parameters()))
+for rpm in [1000, 2000, 3000, 4000, 5000, 6000, 7000]:
+    dfmep, dsoc = ml_model(rpm, 1.0 if rpm >= 4500 else 0.0)
+    print(f"{rpm} RPM → ΔFMEP={float(dfmep):+.5f}  ΔSOC={float(dsoc):+.3f}")

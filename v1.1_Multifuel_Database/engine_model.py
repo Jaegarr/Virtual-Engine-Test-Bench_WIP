@@ -174,8 +174,17 @@ def combustion_Wiebe(
     # turbulence
     mean_piston_speed_m_per_s = 2.0 * spec.stroke_m * rpm / 60.0
     if k_turb_m2_per_s2 is None or k_turb_m2_per_s2 < 10.0:
-        c_t0 = 0.30
-        c_t = c_t0 * (1 + 0.15 * mean_piston_speed_m_per_s / 10.0)
+        # Base coefficient
+        c_t0_base = 0.30
+        # Add 20% boost at very low RPM, taper to baseline by 3000 rpm
+        if rpm < 2000:
+            c_t_mult = 1.20
+        elif rpm < 3000:
+            c_t_mult = 1.20 - 0.20 * (rpm - 2000) / 1000.0
+        else:
+            c_t_mult = 1.0
+        c_t0 = c_t0_base * c_t_mult
+        c_t = c_t0 * (1 + 0.15 * mean_piston_speed_m_per_s / 10.0) # Effective turbulence scaling with mean piston speed
         u_prime = c_t * mean_piston_speed_m_per_s
         k_turb_m2_per_s2 = 1.5 * u_prime**2  # k = 3/2 u'^2
     # 9) Flame speeds & Wiebe duration
@@ -183,7 +192,7 @@ def combustion_Wiebe(
     p_unburned_Pa = max(8e4, p_SoC_Pa)
     S_L = laminar_speed(fuel, T_unburned_K, p_unburned_Pa, phi)
     if ell_turb_m is None:
-        ell_turb_m = 0.4 * spec.bore_m  # simple integral scale guess
+        ell_turb_m = 0.4 * spec.bore_m  
     S_T = turbulent_speed(S_L, k_turb_m2_per_s2, ell_turb_m)
 
     L_char_m = 0.26 * spec.bore_m                    # flame travel scale
@@ -349,7 +358,8 @@ def combustion_Wiebe(
     eta_ind_pct = 100.0 * w_ind_J_per_cycle / max(Q_total_J, 1e-12)   # indicated efficiency [%]
 
     # simple friction & pumping maps (SI units)
-    fmep_Pa = ((0.2 + 0.00055 * mean_piston_speed_m_per_s + 0.005 * (mean_piston_speed_m_per_s)**2) * 1e5 + fmep_offset_Pa)
+    fmep_base_Pa = (0.1 + 0.00055 * mean_piston_speed_m_per_s + 0.005 * (mean_piston_speed_m_per_s)**2) * 1e5 
+    fmep_Pa = max(fmep_base_Pa + fmep_offset_Pa, 0.05e5)
     pmep_Pa = (0.03 + 0.000007 * rpm) * 1e5
     bmep_Pa = imep_gross_Pa - fmep_Pa - pmep_Pa
 

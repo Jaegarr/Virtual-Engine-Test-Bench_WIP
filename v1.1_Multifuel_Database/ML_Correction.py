@@ -1,30 +1,49 @@
 import torch
 import torch.nn as nn
-import numpy as np
+import torch.nn.functional as F
 
 def apply_corrections(ml_model, rpm):
     vvl_active = 1.0 if rpm >= 4500 else 0.0
-    return ml_model(rpm, vvl_active)
-#  2-head MLP model 
+    return ml_model(rpm, vvl_active)   # returns (ΔFMEP_bar, ΔSOC_deg) as tensors
 class MLPCorrection(nn.Module):
-    def __init__(self, with_vvl_flag=False):
+    """
+    Inputs: [rpm_norm] or [rpm_norm, vvl_flag]
+    Outputs: [ΔFMEP_bar, ΔSOC_deg]
+    """
+    def __init__(self, with_vvl_flag: bool = False, hidden: int = 8):
         super().__init__()
         in_features = 2 if with_vvl_flag else 1
-        hidden = 8
+        self.with_vvl_flag = with_vvl_flag
         self.net = nn.Sequential(
             nn.Linear(in_features, hidden),
             nn.Tanh(),
-            nn.Linear(hidden, 2)  # [ΔFMEP_bar, ΔSOC_deg]
+            nn.Linear(hidden, 2)
         )
-    def forward(self, rpm, vvl_active=None):
-        rpm_norm = (rpm - 1000.0) / (7000.0 - 1000.0)
-        if vvl_active is None:
-            x = torch.tensor([[rpm_norm]], dtype=torch.float32)
-        else:
-            x = torch.tensor([[rpm_norm, float(vvl_active)]], dtype=torch.float32)
-        out = self.net(x)
-        delta_fmep_bar, delta_soc_deg = out[0]
-        delta_fmep_Pa = delta_fmep_bar * 1e5  # convert bar→Pa
-        delta_soc_deg = torch.clamp(delta_soc_deg, -5.0, 5.0)
-        return delta_fmep_Pa, delta_soc_deg
+        # bias towards slightly positive ΔFMEP
+        self.net[-1].bias.data[0] = 0.05  
 
+    def forward(self, rpm: float, vvl_active: float | None = None):
+        # Normalize RPM
+        rpm_norm = (float(rpm) - 1000.0) / (7000.0 - 1000.0)
+        rpm_norm = max(0.0, min(1.0, rpm_norm))  # clamp just in case
+
+        if self.with_vvl_flag:
+            if vvl_active is None:
+                vvl_active = 1.0 if rpm >= 4500 else 0.0
+            x = torch.tensor([[rpm_norm, float(vvl_active)]], dtype=torch.float32)
+        else:
+            x = torch.tensor([[rpm_norm]], dtype=torch.float32)
+
+        out = self.net(x)
+        raw_fmep, raw_soc = out[0]
+
+        FMEP_MAX_ADD_BAR = 0.35      # max EXTRA bar we let ML add
+        slope = rpm_norm**1.2        # soft monotonic growth with rpm (0→1)
+        d_fmep_bar = torch.softplus(raw_fmep) * slope
+        d_fmep_bar = torch.clamp(d_fmep_bar, 0.0, FMEP_MAX_ADD_BAR)
+
+
+        # SOC bounded ±5°
+        d_soc_deg = torch.clamp(raw_soc, -5.0, 5.0)
+
+        return d_fmep_bar, d_soc_deg

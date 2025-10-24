@@ -1,0 +1,11 @@
+{
+  "use_vvl_flag": true,
+  "epochs": 800,
+  "lr": 0.001,
+  "spsa_c": 0.001,
+  "spsa_k": 1,
+  "engine_key": "Nissan_VQ35DE_NA_3.5L_V6_350Z",
+  "fuel_key": "Gasoline",
+  "rpm_min": 1000.0,
+  "rpm_max": 7000.0
+}
