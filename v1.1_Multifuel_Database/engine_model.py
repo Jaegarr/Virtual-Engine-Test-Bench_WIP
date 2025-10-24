@@ -57,7 +57,7 @@ def turbulent_speed(
     if m_exp != 0.0:
         scale *= (ell_turb_m / delta_L_m)**m_exp
     S_T_m_per_s = S_L_m_per_s * (1.0 + C_t * scale)
-    return float(np.clip(S_T_m_per_s, max(S_L_m_per_s*1.05, 8.0), 60.0))
+    return float(np.clip(S_T_m_per_s, max(S_L_m_per_s*1.05, 5.0), 60.0))
 
 # =============================================================================
 # Knock proxy (Livengood–Wu integral with a very simple ignition-delay law)
@@ -129,8 +129,8 @@ def combustion_Wiebe(
     crank_radius_m = spec.stroke_m / 2.0
     cyl_area_m2 = np.pi * spec.bore_m**2 / 4.0
     # 5) Heat transfer helpers (Woschni-lite)
-    HT_SCALE = 0.12
-    T_wall_K = 420.0  # crude wall-temp average; adjust 380–450 K if needed
+    HT_SCALE = 0.06
+    T_wall_K = 520.0  
     def gas_velocity_mean(Up_m_per_s, p_Pa, p_mot_Pa):
         C1 = 3.5         
         return C1 * Up_m_per_s
@@ -147,7 +147,7 @@ def combustion_Wiebe(
     V_m3 = V_clear_m3 + cyl_area_m2 * piston_pos_m
     dV_dtheta_m3_per_rad = np.gradient(V_m3, theta_rad)
     # 7) Masses at IVC
-    p_ivc_Pa = 20e3 + throttle * (100e3 - 20e3)    # crude manifold → cylinder
+    p_ivc_Pa = 20e3 + throttle * (100e3 - 20e3)    
     rho_ivc_kg_per_m3 = p_ivc_Pa / (R_gas_J_per_kgK * T_ivc_K)
     m_air_per_cycle_kg = rho_ivc_kg_per_m3 * V_m3[idx_IVC] * ve
     afr_target = cal.get_target_AFR(rpm, fuel=fuel)     # actual AFR at this point
@@ -184,7 +184,7 @@ def combustion_Wiebe(
         ell_turb_m = 0.4 * spec.bore_m  # simple integral scale guess
     S_T = turbulent_speed(S_L, k_turb_m2_per_s2, ell_turb_m)
 
-    L_char_m = 0.26 * spec.bore_m                    # flame travel scale
+    L_char_m = 0.2 * spec.bore_m                    # flame travel scale
     omega_rad_per_s = rpm * 2.0 * np.pi / 60.0
     tau_burn_s = L_char_m / max(0.05, S_T)           # keep a floor on S_T
     theta_burn_rad = omega_rad_per_s * tau_burn_s
@@ -347,8 +347,8 @@ def combustion_Wiebe(
     eta_ind_pct = 100.0 * w_ind_J_per_cycle / max(Q_total_J, 1e-12)   # indicated efficiency [%]
 
     # simple friction & pumping maps (SI units)
-    fmep_Pa = (0.8 + 0.00050 * mean_piston_speed_m_per_s + 0.00550 * (mean_piston_speed_m_per_s)**2) * 1e5
-    pmep_Pa = (0.03 + 0.000035 * rpm) * 1e5
+    fmep_Pa = (0.5 + 0.0003 * mean_piston_speed_m_per_s + 0.0022 * (mean_piston_speed_m_per_s)**2) * 1e5
+    pmep_Pa = (0.03 + 0.000007 * rpm) * 1e5
     bmep_Pa = imep_gross_Pa - fmep_Pa - pmep_Pa
 
     Vd_total_m3 = V_disp_m3 * spec.n_cylinder
