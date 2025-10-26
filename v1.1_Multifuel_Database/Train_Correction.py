@@ -13,7 +13,7 @@ from Fuel_Database import Fuels
 from Calibration import get_ve_from_table
 
 USE_VVL_FLAG   = True          # adds a binary feature: 1 if rpm >= 4500, else 0
-EPOCHS  = 1500
+EPOCHS  = 800
 LR      = 5e-4
 SPSA_C  = 5e-4
 SPSA_K  = 3     # average 3 perturbations per step for less noise

@@ -1,6 +1,6 @@
 {
   "use_vvl_flag": true,
-  "epochs": 1500,
+  "epochs": 800,
   "lr": 0.0005,
   "spsa_c": 0.0005,
   "spsa_k": 3,

@@ -10,7 +10,7 @@ from Engine_Database import EngineSpec, Engines
 from Fuel_Database import FuelSpec, Fuels, blend_H2_NH3
 from ML_Correction import MLPCorrection
 
-USE_ML_CORRECTION = False # MAGIC BUTTON
+USE_ML_CORRECTION = True # MAGIC BUTTON
 def load_correction_model(model_path, meta_path):
     with open(meta_path, 'r') as f:
         meta = json.load(f)
@@ -221,10 +221,6 @@ def FullRangeSweep(spec:EngineSpec,
 def DesignComparison():
     return
 '''
-print(RunPoint(spec=Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel=Fuels.get("NH3"),rpm=3000,throttle=1))
-print(RunPoint(spec=Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel=Fuels.get("Gasoline"),rpm=3000,throttle=1))
-print(RunPoint(spec=Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel=Fuels.get("H2"),rpm=3000,throttle=1))
-print(RunPoint(spec=Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel=blend_H2_NH3(0.1),rpm=3000,throttle=1))
 
 
 
