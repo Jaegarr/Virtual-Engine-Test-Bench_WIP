@@ -5,9 +5,7 @@ import Calibration as cal
 from Engine_Database import EngineSpec
 from Fuel_Database import FuelSpec, Fuels
 
-# =============================================================================
 # Laminar & turbulent flame speed models
-# =============================================================================
 def laminar_speed(
     fuel: FuelSpec,
     T_unburned_K: float,          # unburned-gas temperature [K]
@@ -58,10 +56,7 @@ def turbulent_speed(
         scale *= (ell_turb_m / delta_L_m)**m_exp
     S_T_m_per_s = S_L_m_per_s * (1.0 + C_t * scale)
     return float(np.clip(S_T_m_per_s, max(S_L_m_per_s*1.05, 5.0), 60.0))
-
-# =============================================================================
 # Knock proxy (Livengood–Wu integral with a very simple ignition-delay law)
-# =============================================================================
 # tau_ignition_s ≈ A * p_bar^-n * exp(E/R/T_endgas)
 A_tau = 1.2e-3
 n_tau = 1.0
@@ -69,10 +64,7 @@ Ea_over_R = 3800.0  # Kelvin (activation energy over R)
 def tau_ignition_s(p_bar: float, T_endgas_K: float) -> float:
     T_endgas_K = max(300.0, T_endgas_K)
     return A_tau * (max(p_bar, 1.0) ** (-n_tau)) * np.exp(Ea_over_R / T_endgas_K)
-
-# =============================================================================
 # MAIN: Single-zone Wiebe-based combustion model with light heat transfer
-# =============================================================================
 def combustion_Wiebe(
     spec: EngineSpec,
     rpm: float,
@@ -510,3 +502,5 @@ def estimate_emissions(mDotFuel, AFR, comb_eff, load_frac=0.6, ei_co2_g_per_kg=3
     gps_HC  = EI_HC  * mDotFuel
 
     return {'CO2': gps_CO2, 'CO': gps_CO, 'NOx': gps_NOx, 'HC': gps_HC}
+import pandas as pd
+import matplotlib.pyplot as plt
