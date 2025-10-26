@@ -7,10 +7,7 @@ from typing import Optional, Iterable
 import torch
 from ML_Correction import MLPCorrection
 import json
-import os
-
 USE_ML_CORRECTION = True # MAGIC BUTTON
-
 def load_correction_model(model_path, meta_path):
     with open(meta_path, 'r') as f:
         meta = json.load(f)
@@ -33,16 +30,23 @@ def RunPoint(spec: EngineSpec,
     """
     if combustion_kwargs is None:
         combustion_kwargs = {}
-
-    # --- VE from table ---
+    # VE from table
     table = getattr(spec, "ve_table", None)
     if not isinstance(table, pd.DataFrame):
         raise TypeError(f"spec.ve_table must be a pandas DataFrame, got {type(table)}")
     ve = float(cal.get_ve_from_table(rpm, throttle, table))
     fmep_offset_Pa, soc_offset_deg = 0.0, 0.0
-    if USE_ML_CORRECTION:
-        vvl_flag = 1.0 if rpm >= 4500 else 0.0
-        fmep_offset_bar, soc_offset_deg = ml_model(rpm, vvl_flag)
+    if USE_ML_CORRECTION == True:
+        print("MLP loaded successfully.", any(p.requires_grad for p in ml_model.parameters()))
+        for rpm in [1000, 2000, 3000, 4000, 5000, 6000, 7000]:
+            vvl_flag = 1.0 if rpm >= 4500 else 0.0
+            d_fmep_bar, d_soc_deg, d_lambda = ml_model(rpm, vvl_flag)
+            dfmep = float(d_fmep_bar.detach().cpu().numpy())
+            dsoc  = float(d_soc_deg.detach().cpu().numpy())
+            dlam  = float(d_lambda.detach().cpu().numpy())
+            print(f"{rpm:>5} RPM : Δλ={dlam:+.4f} ΔSOC={dsoc:+.3f}°CA ΔFMEP={dfmep:+.4f} bar")
+    vvl_flag = 1.0 if rpm >= 4500 else 0.0
+    fmep_offset_bar, soc_offset_deg = ml_model(rpm, vvl_flag)
     fmep_offset_Pa = float(fmep_offset_bar) * 1e5         # <- convert here
     if hasattr(fmep_offset_Pa, "detach"):
         fmep_offset_Pa = float(fmep_offset_Pa.detach().cpu().numpy()) * 1e5 if abs(float(fmep_offset_Pa)) < 10 else float(fmep_offset_Pa)
@@ -56,7 +60,6 @@ def RunPoint(spec: EngineSpec,
             plot=True, return_dic=False, **combustion_kwargs
         )
         return  # plotting-only path
-
     res = combustion_Wiebe(
         spec=spec, fuel=fuel, rpm=rpm, throttle=throttle, ve=ve,
         soc_offset_deg = soc_offset_deg, fmep_offset_Pa = fmep_offset_Pa,
@@ -65,73 +68,59 @@ def RunPoint(spec: EngineSpec,
     if not isinstance(res, dict):
         raise RuntimeError("combustion_Wiebe did not return a dict. Ensure return_dic=True is honored.")
 
-    # --- per-cycle -> per-second (4-stroke) ---
+    # per-cycle per-second (4-stroke)
     cps = rpm / 120.0  # cycles per second per cylinder
     mdot_air  = res["m_air_per_cycle_kg"]  * cps * spec.n_cylinder  # kg/s
     mdot_fuel = res["m_fuel_per_cycle_kg"] * cps * spec.n_cylinder  # kg/s
-
-    # --- emissions & BSFC ---
+    # emissions & BSFC 
     AFR = cal.get_target_AFR(rpm, fuel=fuel)
     CO2_gps, CO_gps, NOx_gps, HC_gps = estimate_Emissions(mdot_fuel, AFR, 0.98)
 
     PkW = max(res["power_kw"], 1e-9)
     BSFC_g_per_kWh = (mdot_fuel * 3600.0 * 1000.0) / PkW
     to_gkWh = lambda gps: (gps * 3600.0) / PkW
-
-    # --- assemble output (assume all keys exist in `res`) ---
     out = {
         "RPM": rpm,
         "Throttle": throttle,
         "VE": ve,
-
         # performance
         "Torque_Nm": res["torque_nm"],
         "Power_kW":  res["power_kw"],
-
         # mean effective pressures
         "IMEP_bar":  res["imep_gross_pa"] / 1e5,
         "BMEP_bar":  res["bmep_pa"]       / 1e5,
         "FMEP_bar":  res["fmep_pa"]       / 1e5,
         "PMEP_bar":  res["pmep_pa"]       / 1e5,
-
         # flows
         "mdot_air_kg_s":  mdot_air,
         "mdot_fuel_kg_s": mdot_fuel,
-
         # fuel economy
         "BSFC_g_per_kWh": BSFC_g_per_kWh,
-
-        # emissions (rates)
+        # emissions
         "CO2_gps": CO2_gps, "CO_gps": CO_gps, "NOx_gps": NOx_gps, "HC_gps": HC_gps,
         # emissions intensities
         "CO2_g_kWh": to_gkWh(CO2_gps), "CO_g_kWh": to_gkWh(CO_gps),
         "NOx_g_kWh": to_gkWh(NOx_gps), "HC_g_kWh": to_gkWh(HC_gps),
-
         # timings / phasing
         "ca10_deg": res["ca10_deg"], "ca50_deg": res["ca50_deg"], "ca90_deg": res["ca90_deg"],
         "Pmax_bar": res["pmax_bar"], "Tmax_K": res["tmax_k"],
-
-        # mixture / extra diagnostics (lowercase keys to match `to_legacy`)
+        # mixture / combustion 
         "lambda":         res["lambda"],
         "phi":            res["phi"],
         "soc_deg":        res["soc_deg"],
         "eoc_deg":        res["eoc_deg"],
         "burn_10_90_deg": res["burn_10_90_deg"],
-
         # flame speeds
         "S_L_m_per_s": res["S_L_m_per_s"],
         "S_T_m_per_s": res["S_T_m_per_s"],
-
         # knock proxy
         "knock_index": res["knock_index"],
-
-        # energy accounting (per cycle, per cylinder)
+        # energy (per cycle, per cylinder)
         "q_chem_kj_per_cycle": res["q_chem_kj_per_cycle"],
         "q_ht_kj_per_cycle":   res["q_ht_kj_per_cycle"],
         "w_ind_kj_per_cycle":  res["w_ind_kj_per_cycle"],
         "eta_ind_percent":     res["eta_ind_percent"],
     }
-
     return out
 def SingleRun(spec: EngineSpec, 
               fuel: FuelSpec, 
@@ -208,8 +197,3 @@ def FullRangeSweep(spec:EngineSpec,
 def DesignComparison():
     return
 '''
-print("USE_ML_CORRECTION =", USE_ML_CORRECTION)
-print("Model loaded:", any(p.requires_grad for p in ml_model.parameters()))
-for rpm in [1000, 2000, 3000, 4000, 5000, 6000, 7000]:
-    dfmep, dsoc = ml_model(rpm, 1.0 if rpm >= 4500 else 0.0)
-    print(f"{rpm} RPM → ΔFMEP={float(dfmep):+.5f}  ΔSOC={float(dsoc):+.3f}")

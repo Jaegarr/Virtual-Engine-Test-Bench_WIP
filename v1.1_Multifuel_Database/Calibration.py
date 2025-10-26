@@ -3,12 +3,12 @@ import numpy as np
 from Fuel_Database import Fuels, FuelSpec
 from scipy.interpolate import RegularGridInterpolator
 # Simplified target lambda map by RPM (could be replaced by a CSV/config)
-lambda_target_map = pd.DataFrame({ 'RPM': [1000, 2000, 3000, 4000, 5000, 6000, 7000], 'Lambda': [0.96, 0.94, 0.92, 0.90, 0.88, 0.88, 0.88]})  #1.0, 1.0, 0.95, 0.92, 0.90, 0.88, 0.88
+lambda_target_map = pd.DataFrame({ 'RPM': [1000, 2000, 3000, 4000, 5000, 6000, 7000], 'Lambda': [0.97, 0.93, 0.91, 0.90, 0.88, 0.88, 0.88]})  #1.0, 1.0, 0.95, 0.92, 0.90, 0.88, 0.88
 def get_target_AFR(rpm: float,
                    fuel: FuelSpec,
                    lambda_table: dict = lambda_target_map) -> float:
     """
-        Determine the target air–fuel ratio (AFR) for a given engine speed and fuel.
+        Determine the target air - fuel ratio (AFR) for a given engine speed and fuel.
         Parameters
         ----------
         rpm : float
@@ -20,7 +20,7 @@ def get_target_AFR(rpm: float,
         Returns
         -------
         float
-            Target AFR = stoichiometric AFR of the fuel × target lambda.
+            Target AFR = stoichiometric AFR of the fuel x target lambda.
         Notes
         -----
         - Target lambda is linearly interpolated from the given table.
@@ -72,5 +72,7 @@ def get_ve_from_table(rpm, throttle, ve_table, idle_kpa: float = 20.0, wot_kpa: 
         return [interp_one(t) for t in throttle]
     else:
         return interp_one(throttle)
+'''
 def SparkTiming():
     return
+'''

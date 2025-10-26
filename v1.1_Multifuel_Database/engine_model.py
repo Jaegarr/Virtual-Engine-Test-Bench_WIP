@@ -80,7 +80,8 @@ def combustion_Wiebe(
     combustion_eff: float = 0.98,     # fraction of LHV released
     n_poly_comp: float = 1.34, n_poly_exp: float = 1.26,
     soc_offset_deg: float = 0.0,      
-    fmep_offset_Pa: float = 0.0,      
+    fmep_offset_Pa: float = 0.0,
+    target_lambda: float | None = None,      
     plot: bool = True, return_dic: bool = False
 ):
     """
@@ -144,7 +145,11 @@ def combustion_Wiebe(
     p_ivc_Pa = 20e3 + throttle * (100e3 - 20e3)    
     rho_ivc_kg_per_m3 = p_ivc_Pa / (R_gas_J_per_kgK * T_ivc_K)
     m_air_per_cycle_kg = rho_ivc_kg_per_m3 * V_m3[idx_IVC] * ve
-    afr_target = cal.get_target_AFR(rpm, fuel=fuel)     # actual AFR at this point
+    if target_lambda is not None:
+        lam = float(np.clip(float(target_lambda), 0.85, 1.10))
+        afr_target = fuel.AFR_stoich * lam
+    else:
+        afr_target = cal.get_target_AFR(rpm, fuel=fuel)     
     m_fuel_per_cycle_kg = m_air_per_cycle_kg / afr_target
     m_trapped_kg = m_air_per_cycle_kg + m_fuel_per_cycle_kg
     # Engine-level flows
@@ -228,9 +233,8 @@ def combustion_Wiebe(
     # 11) Combustion loop (with heat transfer & knock integral)
     P_comb_Pa, T_comb_K, mfb_list = [], [], []
     knock_index = 0.0
-    T_endgas_K = T_comp_K[-1]             # start with end-gas temp at SOC
+    T_endgas_K = T_comp_K[-1]             
     p_endgas_bar = P_comp_Pa[-1] / 1e5
-
     for i in range(idx_SOC, idx_EOC):
         theta_i = theta_rad[i]
         x_norm = np.clip((theta_i - SoC_rad) / max(1e-12, burn_span_rad), 0.0, 1.0)
@@ -245,7 +249,6 @@ def combustion_Wiebe(
         dt_s = float(dtheta_rad / omega_rad_per_s)
 
         # Heat transfer (Woschni-lite)
-        # FIX: index for motored pressure must be relative (i - idx_IVC), not absolute
         j = i - idx_IVC
         p_mot_Pa = P_comp_Pa[j] if 0 <= j < len(P_comp_Pa) else P_curr_Pa
         w_gas_m_per_s = gas_velocity_mean(mean_piston_speed_m_per_s, P_curr_Pa, p_mot_Pa)
@@ -264,7 +267,6 @@ def combustion_Wiebe(
         T_comb_K.append(T_curr_K)
         P_comb_Pa.append(P_curr_Pa)
         mfb_list.append(mfb)
-
         # Knock proxy
         gamma_u = 1.35
         T_endgas_K *= (P_curr_Pa/1e5 / max(p_endgas_bar, 1e-3)) ** ((gamma_u - 1.0) / gamma_u)
@@ -320,7 +322,7 @@ def combustion_Wiebe(
 
         T_bd_K[k+1] = max(300.0, T_bd_K[k] + dTdt_k * dt_k)
         P_bd_Pa[k+1] = m_bd_kg[k+1] * R_gas_J_per_kgK * T_bd_K[k+1] / V_bd[k+1]
-    # 14) Assemble traces for plotting / metrics
+    # 14) DataFrame
     df = pd.DataFrame({
         "Crank Angle (deg)": np.degrees(theta_rad),
         "Volume (m3)": V_m3,
@@ -329,7 +331,6 @@ def combustion_Wiebe(
         "Temperature (K)": np.nan,
         "Mass Fraction Burned": np.nan
     })
-
     df.loc[idx_IVC:idx_SOC, "Pressure (bar)"] = P_comp_Pa / 1e5
     df.loc[idx_SOC:idx_EOC-1, "Pressure (bar)"] = np.array(P_comb_Pa) / 1e5
     df.loc[idx_EOC:idx_EVO, "Pressure (bar)"] = P_exp_Pa / 1e5
@@ -359,13 +360,12 @@ def combustion_Wiebe(
     torque_Nm = bmep_Pa * Vd_total_m3 / (4.0 * np.pi)  # 4π for 4-stroke
     power_kW = torque_Nm * (omega_rad_per_s) / 1000.0
     bsfc_g_per_kWh = (m_fuel_per_s_kg * 3600.0 * 1000.0) / max(power_kW, 1e-12)
-    # 16) Optional plots
+    # 16) Plots
     if plot:
         plt.figure()
         plt.plot(V_curve[mask], P_Pa[mask]/1e5)
         plt.xlabel("Volume [m³]"); plt.ylabel("Pressure [bar]")
         plt.title("p–V Loop (single cylinder)"); plt.grid(True); plt.show()
-
         plt.figure(figsize=(10,6))
         # Pressure trace
         plt.subplot(3,1,1)
@@ -377,14 +377,12 @@ def combustion_Wiebe(
             ymax = plt.gca().get_ylim()[1]
             plt.text(ca_deg, 0.95*ymax, label, rotation=90, va="top", ha="right", fontsize=9)
         plt.ylabel("Pressure [bar]"); plt.grid(True)
-
         # Temperature trace
         plt.subplot(3,1,2)
         plt.plot(df["Crank Angle (deg)"], df["Temperature (K)"])
         for ca_deg in (np.degrees(ca10_rad), np.degrees(ca50_rad), np.degrees(ca90_rad)):
             plt.axvline(ca_deg, ls="--", lw=1, c="k", alpha=0.5)
         plt.ylabel("Temperature [K]"); plt.grid(True)
-
         # Burn fraction
         plt.subplot(3,1,3)
         plt.plot(df["Crank Angle (deg)"], df["Mass Fraction Burned"])
@@ -406,11 +404,9 @@ def combustion_Wiebe(
         "torque_nm":            float(torque_Nm),
         "power_kw":             float(power_kW),
         "bsfc_g_per_kwh":       float(bsfc_g_per_kWh),
-
         # mass (per cycle, per cylinder)
         "m_air_per_cycle_kg":   float(m_air_per_cycle_kg),
         "m_fuel_per_cycle_kg":  float(m_fuel_per_cycle_kg),
-
         # mixture / timings
         "lambda":               float(1 / phi),
         "phi":                  float(phi),
@@ -420,25 +416,20 @@ def combustion_Wiebe(
         "soc_deg":              float(np.degrees(SoC_rad)),
         "eoc_deg":              float(np.degrees(EoC_rad)),
         "burn_10_90_deg":       float(burn_10_90_deg),
-
         # in-cylinder peaks
         "pmax_bar":             float(np.nanmax(df["Pressure (bar)"].to_numpy())),
         "tmax_k":               float(np.nanmax(df["Temperature (K)"].to_numpy())),
-
         # flame speeds
         "S_L_m_per_s":          float(S_L),
         "S_T_m_per_s":          float(S_T),
-
         # turbulence / end-gas state used for correlations
         "k_turb_m2_per_s2":     float(k_turb_m2_per_s2),
         "ell_turb_m":           float(ell_turb_m),
         "T_unburned_K":         float(T_unburned_K),
         "p_unburned_bar":       float(p_unburned_Pa / 1e5),
-
         # knock proxy
         "knock_index":          float(knock_index),
-
-        # energy accounting (per cycle, per cylinder)
+        # energy(per cycle, per cylinder)
         "q_chem_kj_per_cycle":  float(qchem_int_J / 1000.0),
         "q_ht_kj_per_cycle":    float(qht_int_J   / 1000.0),
         "w_ind_kj_per_cycle":   float(w_ind_J_per_cycle / 1000.0),
@@ -465,7 +456,6 @@ def estimate_Emissions(mDotFuel, AFR, eff):
     mDotthc = mDotFuel * k_thc * (1 - eff) # THC mainly from incomplete combustion
     emissions_gps = [mDotco2, mDotco, mDotnox, mDotthc] # g/s
     return emissions_gps
-
 def estimate_emissions(mDotFuel, AFR, comb_eff, load_frac=0.6, ei_co2_g_per_kg=3090.0):
     """
     Estimate engine-out emissions as g/s from fuel flow, AFR, and a load proxy.
@@ -502,5 +492,4 @@ def estimate_emissions(mDotFuel, AFR, comb_eff, load_frac=0.6, ei_co2_g_per_kg=3
     gps_HC  = EI_HC  * mDotFuel
 
     return {'CO2': gps_CO2, 'CO': gps_CO, 'NOx': gps_NOx, 'HC': gps_HC}
-import pandas as pd
-import matplotlib.pyplot as plt
+
