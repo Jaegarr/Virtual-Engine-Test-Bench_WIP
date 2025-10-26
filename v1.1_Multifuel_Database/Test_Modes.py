@@ -1,79 +1,103 @@
-import pandas as pd
-import Calibration as cal
-from engine_model import  combustion_Wiebe, estimate_Emissions
-from Engine_Database import EngineSpec
-from Fuel_Database import FuelSpec
-from typing import Optional, Iterable
 import torch
-from ML_Correction import MLPCorrection
 import json
-USE_ML_CORRECTION = True # MAGIC BUTTON
+import pandas as pd
+import numpy as np
+import Calibration as cal
+from Calibration import lambda_target_map
+from typing import Optional, Iterable
+from engine_model import  combustion_Wiebe, estimate_Emissions
+from Engine_Database import EngineSpec, Engines
+from Fuel_Database import FuelSpec, Fuels, blend_H2_NH3
+from ML_Correction import MLPCorrection
+
+USE_ML_CORRECTION = False # MAGIC BUTTON
 def load_correction_model(model_path, meta_path):
     with open(meta_path, 'r') as f:
         meta = json.load(f)
-    model = MLPCorrection(with_vvl_flag=meta.get("with_vvl_flag", True))
-    model.load_state_dict(torch.load(model_path))
-    model.eval()  # set to inference mode
+    # meta key fix + safe default
+    model = MLPCorrection(with_vvl_flag=meta.get("use_vvl_flag", True))
+    state = torch.load(model_path, map_location="cpu")
+    model.load_state_dict(state)
+    model.eval()
     return model
 ml_model = load_correction_model(
-    r'C:\Users\berke\OneDrive\Masaüstü\GitHub\Virtual-Engine-Test-Bench\v1.1_Multifuel_Database\mlp_correction.pt',
-    r'C:\Users\berke\OneDrive\Masaüstü\GitHub\Virtual-Engine-Test-Bench\v1.1_Multifuel_Database\mlp_correction_meta.json'
-)
+    r"C:\Users\berke\OneDrive\Masaüstü\GitHub\Virtual-Engine-Test-Bench\v1.1_Multifuel_Database\mlp_correction.pt",
+    r"C:\Users\berke\OneDrive\Masaüstü\GitHub\Virtual-Engine-Test-Bench\v1.1_Multifuel_Database\mlp_correction_meta.json")
 def RunPoint(spec: EngineSpec, 
              fuel: FuelSpec,  
              rpm: int, 
              throttle: float, 
              analyze: bool = False, 
              combustion_kwargs: Optional[dict] = None) -> dict:
-    """
-    Single operating point.
-    """
-    if combustion_kwargs is None:
-        combustion_kwargs = {}
-    # VE from table
+
+    combustion_kwargs = dict(combustion_kwargs or {})
+
+    # --- VE from table ---
     table = getattr(spec, "ve_table", None)
     if not isinstance(table, pd.DataFrame):
         raise TypeError(f"spec.ve_table must be a pandas DataFrame, got {type(table)}")
     ve = float(cal.get_ve_from_table(rpm, throttle, table))
-    fmep_offset_Pa, soc_offset_deg = 0.0, 0.0
-    if USE_ML_CORRECTION == True:
-        print("MLP loaded successfully.", any(p.requires_grad for p in ml_model.parameters()))
-        for rpm in [1000, 2000, 3000, 4000, 5000, 6000, 7000]:
-            vvl_flag = 1.0 if rpm >= 4500 else 0.0
-            d_fmep_bar, d_soc_deg, d_lambda = ml_model(rpm, vvl_flag)
+
+    # --- ML corrections (ΔFMEP [bar], ΔSOC [deg], Δλ [–]) ---
+    fmep_offset_Pa = 0.0
+    soc_offset_deg = 0.0
+    d_lambda       = 0.0
+
+    if USE_ML_CORRECTION == True and (ml_model is not None):
+        
+        print("MLP loaded:", any(p.requires_grad for p in ml_model.parameters()))
+        for test_rpm in [1000, 2000, 3000, 4000, 5000, 6000, 7000]:
+            vvl_flag = 1.0 if test_rpm >= 4500 else 0.0
+            out = ml_model(test_rpm, vvl_flag)
+            if isinstance(out, (tuple, list)) and len(out) == 3:
+                d_fmep_bar, d_soc_deg, d_lam = out
+            else: 
+                d_fmep_bar, d_soc_deg = out
+                d_lam = torch.tensor(0.0)
             dfmep = float(d_fmep_bar.detach().cpu().numpy())
             dsoc  = float(d_soc_deg.detach().cpu().numpy())
-            dlam  = float(d_lambda.detach().cpu().numpy())
-            print(f"{rpm:>5} RPM : Δλ={dlam:+.4f} ΔSOC={dsoc:+.3f}°CA ΔFMEP={dfmep:+.4f} bar")
-    vvl_flag = 1.0 if rpm >= 4500 else 0.0
-    fmep_offset_bar, soc_offset_deg = ml_model(rpm, vvl_flag)
-    fmep_offset_Pa = float(fmep_offset_bar) * 1e5         # <- convert here
-    if hasattr(fmep_offset_Pa, "detach"):
-        fmep_offset_Pa = float(fmep_offset_Pa.detach().cpu().numpy()) * 1e5 if abs(float(fmep_offset_Pa)) < 10 else float(fmep_offset_Pa)
-    if hasattr(soc_offset_deg, "detach"):
-        soc_offset_deg = float(soc_offset_deg.detach().cpu().numpy())
-    # --- Combustion ---
-    if analyze is True:
+            dlam  = float(d_lam.detach().cpu().numpy())
+            print(f"{test_rpm:>5} RPM : Δλ={dlam:+.4f}  ΔSOC={dsoc:+.3f}°CA  ΔFMEP={dfmep:+.4f} bar")
+        # actual offsets for this operating point
+        vvl_flag = 1.0 if rpm >= 4500 else 0.0
+        out = ml_model(rpm, vvl_flag)
+        if isinstance(out, (tuple, list)) and len(out) == 3:
+            d_fmep_bar, d_soc_deg, d_lam = out
+        else:
+            d_fmep_bar, d_soc_deg = out
+            d_lam = torch.tensor(0.0)
+        fmep_offset_Pa = float(d_fmep_bar.detach().cpu().numpy()) * 1e5  # Pa
+        soc_offset_deg = float(d_soc_deg.detach().cpu().numpy())
+        d_lambda       = float(d_lam.detach().cpu().numpy())
+
+    # --- target lambda from map + Δλ  ---
+    base_lambda   = cal.get_target_AFR(rpm, fuel= fuel, lambda_table=lambda_target_map)/fuel.AFR_stoich
+    target_lambda = float(base_lambda + d_lambda)
+
+    # --- call combustion ---
+    if analyze:
         combustion_Wiebe(
-            spec=spec, fuel=fuel, rpm=rpm, throttle=throttle, ve=ve, 
-            soc_offset_deg = soc_offset_deg, fmep_offset_Pa = fmep_offset_Pa,
+            spec=spec, fuel=fuel, rpm=rpm, throttle=throttle, ve=ve,
+            soc_offset_deg=soc_offset_deg, fmep_offset_Pa=fmep_offset_Pa, target_lambda=target_lambda,                      
             plot=True, return_dic=False, **combustion_kwargs
         )
-        return  # plotting-only path
+        return
+
     res = combustion_Wiebe(
         spec=spec, fuel=fuel, rpm=rpm, throttle=throttle, ve=ve,
-        soc_offset_deg = soc_offset_deg, fmep_offset_Pa = fmep_offset_Pa,
+        soc_offset_deg=soc_offset_deg, fmep_offset_Pa=fmep_offset_Pa, target_lambda=target_lambda,                          
         plot=False, return_dic=True, **combustion_kwargs
     )
     if not isinstance(res, dict):
         raise RuntimeError("combustion_Wiebe did not return a dict. Ensure return_dic=True is honored.")
 
     # per-cycle per-second (4-stroke)
-    cps = rpm / 120.0  # cycles per second per cylinder
-    mdot_air  = res["m_air_per_cycle_kg"]  * cps * spec.n_cylinder  # kg/s
-    mdot_fuel = res["m_fuel_per_cycle_kg"] * cps * spec.n_cylinder  # kg/s
-    # emissions & BSFC 
-    AFR = cal.get_target_AFR(rpm, fuel=fuel)
+    cps = rpm / 120.0
+    mdot_air  = res["m_air_per_cycle_kg"]  * cps * spec.n_cylinder
+    mdot_fuel = res["m_fuel_per_cycle_kg"] * cps * spec.n_cylinder
+
+    # emissions & BSFC
+    AFR = cal.get_target_AFR(rpm, fuel=fuel)  # returns a scalar AFR
     CO2_gps, CO_gps, NOx_gps, HC_gps = estimate_Emissions(mdot_fuel, AFR, 0.98)
 
     PkW = max(res["power_kw"], 1e-9)
@@ -197,3 +221,10 @@ def FullRangeSweep(spec:EngineSpec,
 def DesignComparison():
     return
 '''
+print(RunPoint(spec=Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel=Fuels.get("NH3"),rpm=3000,throttle=1))
+print(RunPoint(spec=Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel=Fuels.get("Gasoline"),rpm=3000,throttle=1))
+print(RunPoint(spec=Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel=Fuels.get("H2"),rpm=3000,throttle=1))
+print(RunPoint(spec=Engines.get("Nissan_VQ35DE_NA_3.5L_V6_350Z"), fuel=blend_H2_NH3(0.1),rpm=3000,throttle=1))
+
+
+

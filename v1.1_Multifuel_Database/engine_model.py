@@ -146,7 +146,7 @@ def combustion_Wiebe(
     rho_ivc_kg_per_m3 = p_ivc_Pa / (R_gas_J_per_kgK * T_ivc_K)
     m_air_per_cycle_kg = rho_ivc_kg_per_m3 * V_m3[idx_IVC] * ve
     if target_lambda is not None:
-        lam = float(np.clip(float(target_lambda), 0.85, 1.10))
+        lam = float(target_lambda)
         afr_target = fuel.AFR_stoich * lam
     else:
         afr_target = cal.get_target_AFR(rpm, fuel=fuel)     
