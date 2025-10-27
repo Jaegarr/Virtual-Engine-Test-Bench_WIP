@@ -23,10 +23,10 @@ def laminar_speed(
     Keeps S_L within sensible floors to avoid numerical issues.
     """
     S0 = fuel.S_L_300K_m_per_s if S_ref_m_per_s is None else S_ref_m_per_s
-    T_term = (T_unburned_K / 300.0)**temp_exp_alpha
-    p_term = (p_unburned_Pa / 101_325.0)**press_exp_beta
+    T_term = (T_unburned_K / 300.0)**fuel.alpha_T
+    p_term = (p_unburned_Pa / 101_325.0)**fuel.beta_p
     # simple parabola in phi around phi_peak
-    phi_shape = max(0.15, 1.0 - ((phi - phi_peak) / phi_width) ** 2)
+    phi_shape = max(0.15, 1.0 - ((phi - fuel.phi_peak) / fuel.phi_width) ** 2)
     return max(0.02, S0 * T_term * p_term * phi_shape)  # floor ~2 cm/s
 def turbulent_speed(
     S_L_m_per_s: float,
