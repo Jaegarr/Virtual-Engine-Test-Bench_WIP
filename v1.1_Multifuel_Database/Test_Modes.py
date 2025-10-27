@@ -1,16 +1,15 @@
 import torch
 import json
 import pandas as pd
-import numpy as np
 import Calibration as cal
 from Calibration import lambda_target_map
 from typing import Optional, Iterable
 from engine_model import  combustion_Wiebe, estimate_Emissions
-from Engine_Database import EngineSpec, Engines
-from Fuel_Database import FuelSpec, Fuels, blend_H2_NH3
+from Engine_Database import EngineSpec
+from Fuel_Database import FuelSpec
 from ML_Correction import MLPCorrection
 
-USE_ML_CORRECTION = True # MAGIC BUTTON
+USE_ML_CORRECTION = False # MAGIC BUTTON
 def load_correction_model(model_path, meta_path):
     with open(meta_path, 'r') as f:
         meta = json.load(f)
