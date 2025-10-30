@@ -4,9 +4,9 @@
 
 ## 🎯 Overview
 This repository contains three proof-of-concept demonstrations and show the author’s prior independent work towards an integrated **multi-fidelity digital twin** architecture connecting:
-- physics-based combustion modelling,  
-- machine-learning corrections from dyno data, and  
-- CFD coupling.
+- physics-based combustion modelling  
+- machine-learning corrections from dyno data  
+- CFD coupling
 
 All simulations were performed using the author’s existing **Virtual Engine Test Bench (VTEB)** Python framework.
 
