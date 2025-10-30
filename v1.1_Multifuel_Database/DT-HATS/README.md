@@ -31,7 +31,7 @@ Evaluate the combustion characteristics of **gasoline, hydrogen, ammonia**, and 
 - IMEP hierarchy correlated directly with flame-speed ranking (H₂ > H₂–NH₃ > Gasoline > NH₃).
 
 **Outputs:**  
-`/Figures/demo1_imep_lambda.png` — IMEP vs λ, dashed region = fixed burn duration.  
+`Demo_1_Multifuel_Combustion.png` — IMEP vs λ, dashed region = fixed burn duration.  
 
 ---
 
@@ -55,7 +55,7 @@ key calibration parameters to match dyno-measured torque.
 - Demonstrated the feasibility of combining physics constraints with data-driven residual learning.  
 
 **Outputs:**  
-`/Figures/demo2_torque_deviation.png` — Torque comparison: Baseline vs ML v1/v1.1 vs Dyno.
+`Demo_2_ML_Correction.png` — Torque comparison: Baseline vs ML-Correction vs Dyno.
 
 ---
 
