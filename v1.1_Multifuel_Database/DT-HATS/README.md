@@ -8,7 +8,7 @@ This repository contains three proof-of-concept demonstrations and show the auth
 - machine-learning corrections from dyno data, and  
 - CFD coupling.
 
-All simulations were performed using the author’s existing **Virtual Engine Test Bench (VETB)** Python framework.
+All simulations were performed using the author’s existing **Virtual Engine Test Bench (VTEB)** Python framework.
 
 ---
 
