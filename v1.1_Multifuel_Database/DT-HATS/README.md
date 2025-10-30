@@ -1,17 +1,12 @@
-# 🧪 DT-HATS Proof-of-Concept Demonstrations
-
-**Project:** Integrated Multi-Fuel Digital Twin Demonstrator  
-**Institutional Context:** Alignment with DT-HATS DC14 — NH₃–H₂ Engine Digital-Twin Development  
-**Date:** October 2025  
+# 🧪 Digital Twin Proof-of-Concept Demonstrations
 
 ---
 
 ## 🎯 Overview
-This repository contains two proof-of-concept demonstrations supporting the DT-HATS DC14 application.  
-They show the author’s prior independent work towards an integrated **multi-fidelity digital twin** architecture connecting:
+This repository contains three proof-of-concept demonstrations and show the author’s prior independent work towards an integrated **multi-fidelity digital twin** architecture connecting:
 - physics-based combustion modelling,  
 - machine-learning corrections from dyno data, and  
-- planned CFD coupling (Demo 3, in progress).
+- CFD coupling.
 
 All simulations were performed using the author’s existing **Virtual Engine Test Bench (VETB)** Python framework.
 
