@@ -1,6 +1,7 @@
 import torch
 import json
 import pandas as pd
+import numpy as np
 import Calibration as cal
 from Calibration import lambda_target_map
 from typing import Optional, Iterable
@@ -9,11 +10,11 @@ from Engine_Database import EngineSpec
 from Fuel_Database import FuelSpec
 from ML_Correction import MLPCorrection
 
-USE_ML_CORRECTION = True # MAGIC BUTTON
+USE_ML_CORRECTION = False # MAGIC BUTTON 1
+USE_CFD_COUPLING = True  # MAGIC BUTTON 2
 def load_correction_model(model_path, meta_path):
     with open(meta_path, 'r') as f:
         meta = json.load(f)
-    # meta key fix + safe default
     model = MLPCorrection(with_vvl_flag=meta.get("use_vvl_flag", True))
     state = torch.load(model_path, map_location="cpu")
     model.load_state_dict(state)
@@ -22,6 +23,22 @@ def load_correction_model(model_path, meta_path):
 ml_model = load_correction_model(
     r"C:\Users\berke\OneDrive\Masaüstü\GitHub\Virtual-Engine-Test-Bench\v1.1_Multifuel_Database\mlp_correction.pt",
     r"C:\Users\berke\OneDrive\Masaüstü\GitHub\Virtual-Engine-Test-Bench\v1.1_Multifuel_Database\mlp_correction_meta.json")
+
+class CFD_Coupling:
+    def __init__(self, path=r"C:\Users\berke\OneDrive\Masaüstü\GitHub\Virtual-Engine-Test-Bench\v1.1_Multifuel_Database\CFD_Average_T_and_k.xlsx"):
+        self.map = pd.read_excel(path)
+        if not {"RPM", "T (K)", "k (m2/s2)"}.issubset(self.map.columns):
+            raise ValueError("CFD map must contain columns: RPM, T(K), k(m2/s2)")
+        
+    def get_conditions(self, rpm: float):
+        """Interpolate CFD-derived T and k for given engine speed."""
+        rpm_vals = self.map["RPM"].values
+        T_vals = self.map["T (K)"].values
+        k_vals = self.map["k (m2/s2)"].values
+        T_interp = np.interp(rpm, rpm_vals, T_vals)
+        k_interp = np.interp(rpm, rpm_vals, k_vals)
+        return T_interp, k_interp
+cfd_adapter = CFD_Coupling()
 def RunPoint(spec: EngineSpec, 
              fuel: FuelSpec,  
              rpm: int, 
@@ -73,19 +90,27 @@ def RunPoint(spec: EngineSpec,
     base_lambda   = cal.get_target_AFR(rpm, fuel= fuel, lambda_table=lambda_target_map)/fuel.AFR_stoich
     target_lambda = float(base_lambda + d_lambda)
 
+    T_cfd_K = None
+    k_cfd_m2_per_s2 = None
+    if USE_CFD_COUPLING:
+        T_cfd_K, k_cfd_m2_per_s2 = cfd_adapter.get_conditions(rpm)
+        print(f"CFD coupling active → RPM={rpm}, T_cfd={T_cfd_K:.1f} K, k_cfd={k_cfd_m2_per_s2:.2f} m²/s²")
+
     # --- call combustion ---
     if analyze:
         combustion_Wiebe(
-            spec=spec, fuel=fuel, rpm=rpm, throttle=throttle, ve=ve,
-            soc_offset_deg=soc_offset_deg, fmep_offset_Pa=fmep_offset_Pa, target_lambda=target_lambda,                      
-            plot=True, return_dic=False, **combustion_kwargs
-        )
+    spec=spec, fuel=fuel, rpm=rpm, throttle=throttle, ve=ve,
+    soc_offset_deg=soc_offset_deg, fmep_offset_Pa=fmep_offset_Pa, target_lambda=target_lambda,
+    T_u_mean_K = T_cfd_K if T_cfd_K is not None else 330.0, k_turb_m2_per_s2 = k_cfd_m2_per_s2 if k_cfd_m2_per_s2 is not None else 5.0,
+    plot=True, return_dic=False, **combustion_kwargs
+    )
         return
 
     res = combustion_Wiebe(
-        spec=spec, fuel=fuel, rpm=rpm, throttle=throttle, ve=ve,
-        soc_offset_deg=soc_offset_deg, fmep_offset_Pa=fmep_offset_Pa, target_lambda=target_lambda,                          
-        plot=False, return_dic=True, **combustion_kwargs
+    spec=spec, fuel=fuel, rpm=rpm, throttle=throttle, ve=ve,
+    soc_offset_deg=soc_offset_deg, fmep_offset_Pa=fmep_offset_Pa, target_lambda=target_lambda,
+    T_u_mean_K = T_cfd_K if T_cfd_K is not None else 330.0, k_turb_m2_per_s2 = k_cfd_m2_per_s2 if k_cfd_m2_per_s2 is not None else 5.0,
+    plot=False, return_dic=True, **combustion_kwargs
     )
     if not isinstance(res, dict):
         raise RuntimeError("combustion_Wiebe did not return a dict. Ensure return_dic=True is honored.")
