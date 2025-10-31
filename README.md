@@ -1,4 +1,4 @@
-# 🧪 Virtual Engine Test Bench (VETB)
+# 🧪 Virtual Engine Test Bench (VTEB)
 
 **Version:** v1.0.0 — Empirical Combustion (✅ complete)  
 **Next:** v1.1.0 — Spark Timing (🚧 in progress)

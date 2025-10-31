@@ -1,19 +1,14 @@
-# 🧪 DT-HATS Proof-of-Concept Demonstrations
-
-**Project:** Integrated Multi-Fuel Digital Twin Demonstrator  
-**Institutional Context:** Alignment with DT-HATS DC14 — NH₃–H₂ Engine Digital-Twin Development  
-**Date:** October 2025  
+# 🧪 Digital Twin Proof-of-Concept Demonstrations
 
 ---
 
 ## 🎯 Overview
-This repository contains two proof-of-concept demonstrations supporting the DT-HATS DC14 application.  
-They show the author’s prior independent work towards an integrated **multi-fidelity digital twin** architecture connecting:
-- physics-based combustion modelling,  
-- machine-learning corrections from dyno data, and  
-- planned CFD coupling (Demo 3, in progress).
+This repository contains three proof-of-concept demonstrations and show the author’s prior independent work towards an integrated **multi-fidelity digital twin** architecture connecting:
+- physics-based combustion modelling  
+- machine-learning corrections from dyno data  
+- CFD coupling
 
-All simulations were performed using the author’s existing **Virtual Engine Test Bench (VETB)** Python framework.
+All simulations were performed using the author’s existing **Virtual Engine Test Bench (VTEB)** Python framework.
 
 ---
 
@@ -36,7 +31,7 @@ Evaluate the combustion characteristics of **gasoline, hydrogen, ammonia**, and 
 - IMEP hierarchy correlated directly with flame-speed ranking (H₂ > H₂–NH₃ > Gasoline > NH₃).
 
 **Outputs:**  
-`/Figures/demo1_imep_lambda.png` — IMEP vs λ, dashed region = fixed burn duration.  
+`Demo_1_Multifuel_Combustion.png` — IMEP vs λ, dashed region = fixed burn duration.  
 
 ---
 
@@ -60,7 +55,7 @@ key calibration parameters to match dyno-measured torque.
 - Demonstrated the feasibility of combining physics constraints with data-driven residual learning.  
 
 **Outputs:**  
-`/Figures/demo2_torque_deviation.png` — Torque comparison: Baseline vs ML v1/v1.1 vs Dyno.
+`Demo_2_ML_Correction.png` — Torque comparison: Baseline vs ML-Correction vs Dyno.
 
 ---
 
