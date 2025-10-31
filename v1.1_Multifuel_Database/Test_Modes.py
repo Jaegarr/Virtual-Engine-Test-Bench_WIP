@@ -9,7 +9,7 @@ from Engine_Database import EngineSpec
 from Fuel_Database import FuelSpec
 from ML_Correction import MLPCorrection
 
-USE_ML_CORRECTION = False # MAGIC BUTTON
+USE_ML_CORRECTION = True # MAGIC BUTTON
 def load_correction_model(model_path, meta_path):
     with open(meta_path, 'r') as f:
         meta = json.load(f)
@@ -220,6 +220,3 @@ def FullRangeSweep(spec:EngineSpec,
 def DesignComparison():
     return
 '''
-
-
-
