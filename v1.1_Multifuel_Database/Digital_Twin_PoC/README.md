@@ -64,7 +64,7 @@ key calibration parameters to match dyno-measured torque.
 - Adjusts laminar and turbulent flame-speed correlations dynamically within the VETB combustion model.
 
 **Outputs:**  
-`Demo_3_CFD_Coupling.png` — Torque comparison: Baseline vs ML-Correction vs Dyno.
+`Demo_3_CFD_Coupling.png` — Torque comparison: Baseline vs CFD Coupled.
 
 ---
 
