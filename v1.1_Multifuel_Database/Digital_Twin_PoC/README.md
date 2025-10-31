@@ -63,12 +63,15 @@ key calibration parameters to match dyno-measured torque.
 - Integration of hydrogen CFD data to import mean temperature (T̄), turbulence kinetic energy (k̄) and length-scale.  
 - Adjusts laminar and turbulent flame-speed correlations dynamically within the VETB combustion model.
 
+**Outputs:**  
+`Demo_3_CFD_Coupling.png` — Torque comparison: Baseline vs ML-Correction vs Dyno.
+
 ---
 
 ## 🧩 Tools & Languages
 - Python 3.11  |  NumPy · Pandas · Matplotlib · Scikit-learn  
 - OpenFOAM 11 (CFD data import for Demo 3)  
-- Jupyter / VS Code environment  
+- VS Code environment  
 
 
 
