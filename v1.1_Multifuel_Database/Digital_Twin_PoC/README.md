@@ -59,7 +59,7 @@ key calibration parameters to match dyno-measured torque.
 
 ---
 
-## 🚀 Demo 3 — CFD-Informed Combustion Adjustment (WIP)
+## 🚀 Demo 3 — CFD-Informed Combustion Adjustment 
 - Integration of hydrogen CFD data to import mean temperature (T̄), turbulence kinetic energy (k̄) and length-scale.  
 - Adjusts laminar and turbulent flame-speed correlations dynamically within the VETB combustion model.
 
